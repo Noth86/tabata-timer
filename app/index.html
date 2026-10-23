@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0e0f12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tabata">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+  <title>Tabata Timer</title>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="stopwatch" role="tab">Cronometro</button>
+      <button class="tab" data-view="tabata" role="tab">Tabata</button>
+    </nav>
+    <div class="top-actions">
+      <button id="wake-indicator" class="icon-btn" title="Stato schermo sempre acceso">💡</button>
+      <button id="fullscreen-btn" class="icon-btn" title="Schermo intero">⛶</button>
+    </div>
+  </header>
+
+  <!-- CRONOMETRO -->
+  <main id="view-stopwatch" class="view active">
+    <div class="sw-display">
+      <div class="sw-time"><span id="sw-main">00:00</span><span id="sw-cs" class="cs">.00</span></div>
+    </div>
+    <div class="controls">
+      <button id="sw-reset" class="btn secondary">Azzera</button>
+      <button id="sw-toggle" class="btn primary">Avvia</button>
+      <button id="sw-lap" class="btn secondary" disabled>Giro</button>
+    </div>
+    <ol id="sw-laps" class="laps"></ol>
+  </main>
+
+  <!-- TABATA: impostazioni -->
+  <main id="view-tabata" class="view">
+    <div class="setup">
+      <div class="preset-row">
+        <select id="preset-select" aria-label="Preset"></select>
+        <button id="preset-save" class="btn small secondary">Salva</button>
+        <button id="preset-delete" class="btn small secondary">Elimina</button>
+      </div>
+
+      <div class="fields">
+        <div class="field" data-key="prep" data-min="0" data-max="600" data-step="5" data-time>
+          <span class="label">Preparazione</span>
+        </div>
+        <div class="field" data-key="work" data-min="5" data-max="3600" data-step="5" data-time>
+          <span class="label">Lavoro</span>
+        </div>
+        <div class="field" data-key="rest" data-min="0" data-max="3600" data-step="5" data-time>
+          <span class="label">Riposo</span>
+        </div>
+        <div class="field" data-key="rounds" data-min="1" data-max="99" data-step="1">
+          <span class="label">Round</span>
+        </div>
+        <div class="field" data-key="sets" data-min="1" data-max="20" data-step="1">
+          <span class="label">Serie</span>
+        </div>
+        <div class="field" data-key="recovery" data-min="0" data-max="3600" data-step="15" data-time>
+          <span class="label">Recupero tra serie</span>
+        </div>
+      </div>
+
+      <div class="options">
+        <label class="switch"><input type="checkbox" id="opt-sound" checked> Suoni</label>
+        <label class="switch"><input type="checkbox" id="opt-voice"> Voce</label>
+      </div>
+
+      <div class="total">Durata totale: <strong id="total-time">0:00</strong></div>
+      <button id="tb-start" class="btn primary big">Inizia</button>
+    </div>
+  </main>
+
+  <!-- TABATA: in esecuzione (sovrapposto a tutto lo schermo) -->
+  <section id="tabata-run" class="run hidden" data-phase="prep">
+    <div class="run-top">
+      <button id="tb-close" class="icon-btn" title="Chiudi">✕</button>
+      <div class="run-info">
+        <span id="run-round">Round 1/8</span>
+        <span id="run-set">Serie 1/1</span>
+      </div>
+      <span id="run-remaining" class="run-remaining">0:00</span>
+    </div>
+    <div class="run-center" id="run-center">
+      <div id="run-phase" class="run-phase">PREPARATI</div>
+      <div id="run-seconds" class="run-seconds">10</div>
+      <div id="run-next" class="run-next"></div>
+    </div>
+    <div class="progress"><div id="run-progress" class="progress-bar"></div></div>
+    <div class="controls run-controls">
+      <button id="tb-restart" class="btn secondary">Ricomincia</button>
+      <button id="tb-toggle" class="btn primary">Pausa</button>
+      <button id="tb-skip" class="btn secondary">Salta</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
