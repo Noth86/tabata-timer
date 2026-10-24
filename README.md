@@ -20,11 +20,14 @@ Poi sull'iPad:
 2. **Condividi → Aggiungi alla schermata Home**;
 3. apri l'app dall'icona: parte a tutto schermo e funziona anche offline.
 
-L'icona 💡 in alto a destra è accesa quando lo schermo sempre acceso è attivo. Se resta spenta,
-toccala per i dettagli (soluzione di riserva: Impostazioni → Schermo e luminosità → Blocco automatico → Mai).
+L'interruttore "Schermo sempre acceso" in alto a destra blocca lo standby (verde = attivo).
+Se il browser non lo supporta, la soluzione di riserva è: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.
 
 ## Aggiornare l'app
-Dopo una modifica ai file, incrementa `CACHE` in `app/sw.js` (es. `tabata-v2`) e ripubblica.
+Basta fare `git push`: la pubblicazione inserisce da sola il numero di versione (hash del commit).
+L'app installata controlla gli aggiornamenti all'apertura, quando torna in primo piano e ogni 30 minuti,
+e si ricarica da sola (mai durante un allenamento Tabata). In fondo alla scheda Tabata trovi la versione
+attuale: toccala per forzare il controllo.
 
 ## Domani: Android e iOS
 La cartella `app/` è già pronta per essere usata come `webDir` di [Capacitor](https://capacitorjs.com).

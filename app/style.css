@@ -343,3 +343,5 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   box-shadow: 0 8px 30px rgba(0,0,0,.4);
 }
 .run-seconds.long { font-size: min(30vw, 45vh); }
+
+.app-version { border: 0; background: transparent; color: var(--muted); font-size: 14px; opacity: .7; padding: 8px; align-self: center; }

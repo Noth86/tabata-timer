@@ -13,6 +13,10 @@ const store = {
   },
 };
 
+// sostituita automaticamente con l'hash del commit durante la pubblicazione (vedi .github/workflows/pages.yml)
+const APP_VERSION = '__VERSION__';
+const versionLabel = () => (APP_VERSION.startsWith('__') ? 'sviluppo' : APP_VERSION);
+
 const pad = (n, len = 2) => String(n).padStart(len, '0');
 
 function fmtClock(totalSec) {
@@ -654,6 +658,52 @@ setInterval(() => {
   if (tabata.running()) tabata.tick();
 }, 33);
 
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
+/* ================= Aggiornamenti ================= */
+
+const updates = {
+  reg: null,
+  pendingReload: false,
+
+  // non ricarichiamo mai durante un allenamento Tabata (il cronometro invece sopravvive alla ricarica)
+  safeToReload() { return $('#tabata-run').classList.contains('hidden'); },
+
+  async check() {
+    if (!this.reg) return;
+    try { await this.reg.update(); } catch { /* offline */ }
+  },
+
+  async manualCheck() {
+    if (!this.reg) return toast('Aggiornamenti non disponibili in questa modalità');
+    toast('Controllo aggiornamenti…');
+    await this.check();
+    if (!this.reg.installing && !this.reg.waiting) toast(`Sei già all'ultima versione (${versionLabel()})`);
+  },
+
+  init() {
+    $('#app-version').textContent = `Versione ${versionLabel()} · tocca per controllare aggiornamenti`;
+    $('#app-version').addEventListener('click', () => this.manualCheck());
+    if (!('serviceWorker' in navigator) || !(location.protocol === 'https:' || location.hostname === 'localhost')) return;
+
+    // se c'era già una versione attiva, il cambio di service worker significa "aggiornamento arrivato"
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) return;
+      if (this.safeToReload()) location.reload();
+      else {
+        this.pendingReload = true;
+        toast('Aggiornamento pronto: verrà applicato alla fine dell\'allenamento.');
+      }
+    });
+
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((reg) => { this.reg = reg; })
+      .catch(() => {});
+
+    // l'app installata su iPad resta "viva" a lungo: controlliamo quando torna in primo piano e ogni 30 minuti
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.check(); });
+    setInterval(() => this.check(), 30 * 60 * 1000);
+    setInterval(() => { if (this.pendingReload && this.safeToReload()) location.reload(); }, 1000);
+  },
+};
+
+updates.init();
