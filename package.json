@@ -1,0 +1,12 @@
+{
+  "name": "tabata-timer",
+  "private": true,
+  "description": "Test automatici della web app (la app stessa non ha dipendenze)",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

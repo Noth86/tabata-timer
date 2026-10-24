@@ -42,6 +42,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 /* ---------- barra in alto ---------- */
 .topbar {
   display: flex;
+  flex-wrap: wrap; /* se non ci sta su una riga (telefoni in orizzontale, Split View) va a capo invece di uscire */
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -66,7 +67,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 .tab.active { background: var(--surface-2); color: var(--text); }
 
-.top-actions { display: flex; gap: 8px; }
+.top-actions { display: flex; gap: 8px; margin-left: auto; }
 
 .icon-btn {
   border: 0;
@@ -134,7 +135,12 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 #wake-indicator.unsupported { color: var(--rest); }
 #wake-indicator.unsupported .switch-ui { display: none; }
 
-@media (max-width: 640px) {
+/* sotto gli 840 px "Installa app" diventa solo icona: la barra resta su una riga anche su iPad mini verticale */
+@media (max-width: 840px) {
+  .install-label { display: none; }
+  .pill.install { padding: 0 14px; }
+}
+@media (max-width: 700px) {
   .pill-label { display: none; }
   .pill { padding: 0 14px; }
 }
@@ -180,7 +186,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .btn.secondary { background: var(--surface-2); }
 .btn:disabled { opacity: .35; }
 .btn.small { padding: 12px 16px; font-size: 16px; flex: 0 0 auto; }
-.btn.big { width: 100%; max-width: 820px; flex: 0 0 auto; font-size: 30px; padding: 26px; }
+.btn.big { width: 100%; flex: 0 0 auto; font-size: 30px; padding: 26px; }
 
 /* ---------- cronometro ---------- */
 .sw-display {
@@ -223,7 +229,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 /* ---------- tabata: impostazioni ---------- */
 .setup {
   width: 100%;
-  max-width: 820px;
+  max-width: 960px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -244,7 +250,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   font-size: 18px;
 }
 
-.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 12px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 12px; }
 
 .field {
   display: flex;
@@ -256,7 +262,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   gap: 12px;
 }
 .field .label { font-size: 20px; font-weight: 600; }
-.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .stepper button {
   border: 0;
   width: 56px;
@@ -414,3 +420,50 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .run-next.counter-big { font-size: min(7vw, 7vh); font-weight: 800; opacity: 1; }
 .run-phase.small { font-size: min(7vw, 9vh); text-align: center; }
 .run-phase { text-align: center; overflow-wrap: anywhere; }
+
+/* ---------- telefono: la barra in alto va su due righe, pulsanti più compatti ---------- */
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; padding: 8px 12px; gap: 8px; }
+  .tabs { flex: 1 1 100%; }
+  .tab { flex: 1; padding: 10px 12px; font-size: 17px; }
+  .top-actions { flex: 1 1 100%; justify-content: flex-end; }
+  .controls { gap: 8px; }
+  .btn { padding: 18px 10px; font-size: 19px; }
+  .run-top { font-size: 18px; }
+  .modes { flex-wrap: wrap; }
+  .modes button { flex: 1 0 28%; padding: 10px 8px; font-size: 17px; }
+  .field { padding: 10px 10px 10px 14px; gap: 8px; }
+  .field .label { font-size: 17px; }
+  .stepper { gap: 4px; }
+  .stepper button { width: 48px; height: 48px; font-size: 26px; }
+  .stepper .value { min-width: 70px; font-size: 22px; }
+}
+
+/* ---------- telefoni piccoli (iPhone SE, Android compatti) ---------- */
+@media (max-width: 400px) {
+  .btn { padding: 16px 4px; font-size: 16px; }
+  .run-info { gap: 12px; }
+  .mini-btn { flex-shrink: 0; }
+}
+/* solo i telefoni più stretti (iPhone SE prima generazione, 320 px): stepper sotto l'etichetta */
+@media (max-width: 360px) {
+  .field { flex-wrap: wrap; }
+  .field .label { flex: 1 1 100%; }
+  .field .stepper { margin-left: auto; }
+  .run-top { font-size: 16px; gap: 8px; }
+  .run-info { gap: 8px; }
+  .run-counter { gap: 6px; }
+  .mini-btn { width: 36px; height: 36px; }
+}
+
+/* schermi bassi (telefoni in orizzontale): l'allenamento deve stare tutto in altezza */
+@media (max-height: 440px) {
+  .run { padding-top: calc(env(safe-area-inset-top) + 6px); padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
+  .run-top .icon-btn { width: 40px; height: 40px; }
+  .run-phase, .run-phase.small { font-size: 8vh; }
+  .run-seconds { font-size: min(40vw, 46vh); }
+  .run-seconds.long { font-size: min(26vw, 40vh); }
+  .run-next, .run-next.counter-big { font-size: 6vh; }
+  .progress { margin: 4px auto 8px; }
+  .run-controls .btn { padding: 10px 8px; }
+}

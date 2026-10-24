@@ -35,7 +35,7 @@ poi si ricarica, mai durante un allenamento. La versione attuale è scritta in f
 toccala per forzare il controllo.
 
 ## Sviluppo
-È una web app (PWA) in HTML, CSS e JavaScript, senza dipendenze né build.
+È una web app (PWA) in HTML, CSS e JavaScript, senza dipendenze né build. Node serve solo per i test.
 
 ```
 app/                  la web app (pubblicata così com'è)
@@ -46,6 +46,8 @@ app/                  la web app (pubblicata così com'è)
   manifest.webmanifest
   icons/
 .github/workflows/    pubblicazione automatica su GitHub Pages
+tests/                test automatici (Playwright)
+.claude/agents/qa.md  agente QA che prova l'app prima di ogni rilascio
 serve.sh              server locale per provarla
 ```
 
@@ -64,9 +66,22 @@ Poi apri http://localhost:8080.
 - **F**: schermo intero.
 - **Esc**: chiude l'allenamento.
 
-**Pubblicazione:** ogni `git push` su `main` pubblica la cartella `app/` su GitHub Pages
-([pages.yml](.github/workflows/pages.yml)). Il numero di versione, cioè l'hash del commit, viene inserito
-automaticamente in `sw.js` e `app.js`, quindi non va cambiato a mano.
+**Test automatici** (Playwright con WebKit, il motore di Safari):
+```bash
+npm install && npx playwright install webkit   # la prima volta
+npm test
+```
+- **Logica** (`tests/logica.spec.js`): ogni modalità con il tempo simulato, preset, cronometro, schermo sempre acceso.
+- **Grafica** (`tests/grafica.spec.js`): su iPad, iPad in orizzontale, iPad mini, Mac e iPhone. Controlla che niente
+  sia schiacciato, tagliato, coperto o fuori schermo, e salva le foto delle schermate in `qa-screenshots/`.
+- **Offline** (`tests/offline.spec.js`): l'app funziona senza internet dopo il primo caricamento.
+
+Prima di ogni rilascio l'agente QA ([.claude/agents/qa.md](.claude/agents/qa.md)) esegue i test, rivede le foto
+e prova l'app a mano.
+
+**Pubblicazione:** ogni `git push` su `main` esegue i test e, **solo se passano**, pubblica la cartella `app/`
+su GitHub Pages ([pages.yml](.github/workflows/pages.yml)). Il numero di versione, cioè l'hash del commit,
+viene inserito automaticamente in `sw.js` e `app.js`, quindi non va cambiato a mano.
 
 ## In futuro: Android e iOS
 La cartella `app/` è già pronta per essere usata come `webDir` di [Capacitor](https://capacitorjs.com),

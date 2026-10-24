@@ -483,6 +483,7 @@ const workout = {
   modeId: MODES[store.get('wo.mode', 'tabata')] ? store.get('wo.mode', 'tabata') : 'tabata',
   configs: loadConfigs(),
   customPresets: loadPresets(),
+  selectedPresets: store.get('wo.selected', {}), // ultimo preset scelto per ogni modalità
   opts: store.get('tb.opts', { sound: true, voice: false }),
 
   get mode() { return MODES[this.modeId]; },
@@ -621,7 +622,12 @@ const workout = {
 
   matchingPresetIndex() {
     const current = JSON.stringify(presetValues(this.modeId, this.config));
-    return this.presetsForMode().findIndex((p) => JSON.stringify(presetValues(this.modeId, p)) === current);
+    const matches = (p) => p && JSON.stringify(presetValues(this.modeId, p)) === current;
+    const list = this.presetsForMode();
+    // se il preset scelto ha gli stessi valori di un altro (es. una copia personale di un predefinito) resta quello scelto
+    const chosen = list.findIndex((p) => this.selectedPresets[this.modeId] && p.name === this.selectedPresets[this.modeId].name && !!p.builtin === this.selectedPresets[this.modeId].builtin);
+    if (chosen >= 0 && matches(list[chosen])) return chosen;
+    return list.findIndex(matches);
   },
 
   renderPresets() {
@@ -677,6 +683,8 @@ const workout = {
     $('#preset-select').addEventListener('change', (e) => {
       const p = this.presetsForMode()[Number(e.target.value)];
       if (!p) return;
+      this.selectedPresets[this.modeId] = { name: p.name, builtin: !!p.builtin };
+      store.set('wo.selected', this.selectedPresets);
       this.configs[this.modeId] = presetValues(this.modeId, p);
       this.saveConfig();
       this.renderFields();
@@ -690,6 +698,8 @@ const workout = {
       if (existing >= 0) this.customPresets[existing] = preset;
       else this.customPresets.push(preset);
       store.set('wo.presets', this.customPresets);
+      this.selectedPresets[this.modeId] = { name: preset.name, builtin: false };
+      store.set('wo.selected', this.selectedPresets);
       this.renderPresets();
       this.renderValues();
       toast(`Preset "${preset.name}" salvato`);
@@ -704,6 +714,7 @@ const workout = {
       store.set('wo.presets', this.customPresets);
       this.renderPresets();
       this.renderValues();
+      toast(`Preset "${p.name}" eliminato`);
     });
 
     $('#opt-sound').addEventListener('change', (e) => { this.opts.sound = e.target.checked; store.set('tb.opts', this.opts); });
@@ -716,6 +727,8 @@ const workout = {
 
   elapsed() { return this.acc + (this.startedAt !== null ? performance.now() - this.startedAt : 0); },
   running() { return this.startedAt !== null; },
+  // iniziato e non finito, anche se in pausa (è in pausa che si tocca più facilmente per sbaglio)
+  inProgress() { return !this.finished && (this.running() || this.elapsed() > 0); },
 
   start() {
     sound.unlock();
@@ -787,7 +800,7 @@ const workout = {
   },
 
   close() {
-    if (this.running() && !confirm('Interrompere l\'allenamento?')) return;
+    if (this.inProgress() && !confirm('Interrompere l\'allenamento?')) return;
     this.startedAt = null;
     $('#tabata-run').classList.add('hidden');
     if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -869,8 +882,8 @@ const workout = {
     phaseEl.classList.toggle('small', ph.name.length > 12);
     $('#run-round').textContent = ph.info;
     let nextText = '';
-    if (next) nextText = `Poi: ${next.name.toLowerCase()} · ${fmtDur(next.dur)}`;
-    else if (!ph.countUp && !this.runMode.counter) nextText = 'Ultimo sforzo!';
+    if (next) nextText = `Poi: ${next.name} · ${fmtDur(next.dur)}`;
+    else if (ph.type === 'work' && !ph.countUp && !this.runMode.counter) nextText = 'Ultimo sforzo!';
     $('#run-next').textContent = nextText;
     $('#run-next').classList.toggle('counter-big', !!this.runMode.counter && ph.type === 'work');
     if (this.runMode.counter && ph.type === 'work') this.renderCount();
@@ -886,7 +899,10 @@ const workout = {
     $('#tb-start').addEventListener('click', () => this.start());
     $('#tb-toggle').addEventListener('click', () => this.toggle());
     $('#tb-skip').addEventListener('click', () => this.skip());
-    $('#tb-restart').addEventListener('click', () => this.start());
+    $('#tb-restart').addEventListener('click', () => {
+      if (this.inProgress() && !confirm('Ricominciare l\'allenamento da capo?')) return;
+      this.start();
+    });
     $('#tb-count').addEventListener('click', () => this.addCount(+1));
     $('#cnt-minus').addEventListener('click', () => this.addCount(-1));
     $('#tb-done').addEventListener('click', () => this.finish());

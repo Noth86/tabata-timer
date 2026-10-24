@@ -1,4 +1,4 @@
-# Pubblica la cartella app/ su GitHub Pages a ogni push su main.
+# A ogni push su main: prima i test automatici, poi (solo se passano) la pubblicazione su GitHub Pages.
 name: Pubblica su GitHub Pages
 
 on:
@@ -16,7 +16,34 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Test automatici
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Installa WebKit (motore di Safari)
+        run: npx playwright install --with-deps webkit
+      - name: Esegui i test
+        run: npx playwright test
+      - name: Salva il report e le foto se qualcosa fallisce
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-test
+          path: |
+            playwright-report/
+            test-results/
+            qa-screenshots/
+          retention-days: 14
+
   deploy:
+    name: Pubblica
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
