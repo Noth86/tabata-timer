@@ -229,6 +229,8 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   gap: 18px;
   overflow-y: auto;
 }
+/* quando il contenuto è più alto dello schermo (iPad in orizzontale) si scorre: nessun blocco va schiacciato */
+.setup > * { flex-shrink: 0; }
 
 .preset-row { display: flex; gap: 8px; }
 .preset-row select {
