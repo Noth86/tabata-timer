@@ -21,10 +21,10 @@
       <button class="tab" data-view="tabata" role="tab">Tabata</button>
     </nav>
     <div class="top-actions">
-      <button id="wake-indicator" class="pill" title="Stato dello schermo">
+      <button id="wake-indicator" class="pill" role="switch" aria-checked="true" title="Schermo sempre acceso">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-        <span class="dot"></span>
-        <span id="wake-label" class="pill-label">Schermo: verifica…</span>
+        <span id="wake-label" class="pill-label">Schermo sempre acceso</span>
+        <span class="switch-ui" aria-hidden="true"></span>
       </button>
       <button id="install-btn" class="pill install hidden" title="Installa come app">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>

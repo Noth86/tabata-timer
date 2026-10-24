@@ -103,11 +103,34 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 .pill.install { background: var(--surface-2); color: var(--text); }
 
-/* stato "schermo sempre acceso": pallino colorato + testo */
-#wake-indicator .dot { width: 10px; height: 10px; border-radius: 50%; background: #f39c12; flex: 0 0 auto; }
-#wake-indicator.on { color: var(--text); }
-#wake-indicator.on .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-#wake-indicator.unsupported .dot { background: var(--rest); }
+/* interruttore "schermo sempre acceso" */
+.switch-ui {
+  position: relative;
+  width: 42px;
+  height: 26px;
+  border-radius: 999px;
+  background: #4a4e57;
+  flex: 0 0 auto;
+  transition: background-color .2s;
+}
+.switch-ui::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+}
+#wake-indicator.enabled { color: var(--text); }
+#wake-indicator.enabled .switch-ui { background: var(--accent); }
+#wake-indicator.enabled .switch-ui::after { transform: translateX(16px); }
+/* attivato ma l'iPad non l'ha ancora concesso (serve un tocco) */
+#wake-indicator.enabled.pending .switch-ui { background: #f39c12; }
+#wake-indicator.unsupported { color: var(--rest); }
+#wake-indicator.unsupported .switch-ui { display: none; }
 
 @media (max-width: 640px) {
   .pill-label { display: none; }

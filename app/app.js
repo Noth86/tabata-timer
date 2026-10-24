@@ -36,9 +36,10 @@ function toast(msg, ms = 3500) {
 const wake = {
   lock: null,
   supported: 'wakeLock' in navigator,
+  enabled: store.get('wake.enabled', true),
 
   async acquire() {
-    if (!this.supported || this.lock || document.visibilityState !== 'visible') return;
+    if (!this.supported || !this.enabled || this.lock || document.visibilityState !== 'visible') return;
     try {
       this.lock = await navigator.wakeLock.request('screen');
       this.lock.addEventListener('release', () => { this.lock = null; this.render(); });
@@ -50,20 +51,30 @@ const wake = {
 
   render() {
     const el = $('#wake-indicator');
-    el.classList.toggle('on', !!this.lock);
+    const on = this.supported && this.enabled;
+    el.classList.toggle('enabled', on);
+    el.classList.toggle('pending', on && !this.lock);
     el.classList.toggle('unsupported', !this.supported);
-    $('#wake-label').textContent = !this.supported ? 'Standby non bloccabile'
-      : this.lock ? 'Schermo sempre acceso' : 'Lo schermo può spegnersi';
+    el.setAttribute('aria-checked', String(on));
+    $('#wake-label').textContent = this.supported ? 'Schermo sempre acceso' : 'Standby non bloccabile';
   },
 
-  explain() {
+  async toggle() {
     if (!this.supported) {
       toast('Questo browser non può impedire lo standby. Su iPad: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.', 7000);
-    } else if (this.lock) {
-      toast('Lo schermo resta acceso finché l\'app è aperta in primo piano.');
+      return;
+    }
+    this.enabled = !this.enabled;
+    store.set('wake.enabled', this.enabled);
+    if (this.enabled) {
+      await this.acquire();
+      toast('Schermo sempre acceso: attivo finché l\'app è aperta.');
     } else {
-      toast('Blocco dello standby non ancora attivo: tocca un punto qualsiasi dello schermo.');
-      this.acquire();
+      const lock = this.lock;
+      this.lock = null;
+      if (lock) await lock.release();
+      this.render();
+      toast('Schermo sempre acceso: disattivato. L\'iPad andrà in standby come al solito.');
     }
   },
 };
@@ -72,8 +83,11 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') wake.acquire();
 });
 // Alcuni browser concedono il blocco solo dopo un'interazione: riproviamo a ogni tocco finché non è attivo.
-document.addEventListener('pointerdown', () => wake.acquire(), { capture: true });
-$('#wake-indicator').addEventListener('click', () => wake.explain());
+// (il tocco sull'interruttore stesso è escluso, altrimenti lo riattiverebbe mentre lo si spegne)
+document.addEventListener('pointerdown', (e) => {
+  if (!e.target.closest('#wake-indicator')) wake.acquire();
+}, { capture: true });
+$('#wake-indicator').addEventListener('click', () => wake.toggle());
 
 /* ================= Schermo intero ================= */
 
