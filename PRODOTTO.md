@@ -14,7 +14,7 @@ Senza account sviluppatore Apple non si può installare un'app nativa stabile su
 - tiene lo schermo acceso con la **Screen Wake Lock API** (Safari/iPadOS 16.4+, anche da Home da iPadOS 18.4);
 - è lo stesso codice che domani si impacchetta per App Store / Play Store con **Capacitor**.
 
-## Funzioni (versione 1)
+## Funzioni attuali
 
 ### Comuni
 - Interruttore "Schermo sempre acceso" (blocca lo standby finché l'app è aperta; scelta ricordata).
@@ -50,20 +50,12 @@ Senza account sviluppatore Apple non si può installare un'app nativa stabile su
 Account, sincronizzazione, storico/statistiche, musica, Apple Watch, notifiche a schermo spento.
 
 ## Roadmap a fasi
-1. **Ora** — PWA in locale sul Mac per provarla.
-2. **Pubblicazione gratuita** — hosting HTTPS gratuito (GitHub Pages o Netlify) → apri l'indirizzo sull'iPad e "Aggiungi a Home".
+1. ✅ **Prova in locale** — PWA sul Mac.
+2. ✅ **Pubblicazione gratuita** — GitHub Pages (https://noth86.github.io/tabata-timer/), aggiornata a ogni push;
+   sull'iPad si installa con "Aggiungi alla schermata Home".
    (L'HTTPS è necessario: senza, iPad non concede il blocco dello standby né il funzionamento offline.)
 3. **Android** — la PWA si installa già da Chrome. Per il Play Store: Capacitor (o TWA), account Google Play 25 $ una tantum.
 4. **iOS App Store** — Capacitor + Xcode, account Apple Developer 99 $/anno. Nell'app nativa lo standby si blocca con `isIdleTimerDisabled`.
 
 ## Struttura del progetto
-```
-app/            ← la web app (sarà la "webDir" di Capacitor)
-  index.html
-  style.css
-  app.js
-  manifest.webmanifest
-  sw.js         ← service worker per l'offline
-  icons/
-serve.sh        ← avvia un server locale per provarla sul Mac
-```
+Vedi [README.md](README.md#sviluppo).
