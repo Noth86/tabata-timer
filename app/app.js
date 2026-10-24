@@ -204,7 +204,7 @@ const sound = {
   },
 
   beep(freq = 880, dur = 0.15, vol = 0.35) {
-    if (!tabata.opts.sound || !this.ctx) return;
+    if (!workout.opts.sound || !this.ctx) return;
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -219,7 +219,7 @@ const sound = {
   },
 
   say(text) {
-    if (!tabata.opts.voice || !('speechSynthesis' in window)) return;
+    if (!workout.opts.voice || !('speechSynthesis' in window)) return;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'it-IT';
     u.rate = 1.05;
@@ -315,23 +315,178 @@ const stopwatch = {
   },
 };
 
-/* ================= Tabata ================= */
+/* ================= Allenamento (Tabata, EMOM, AMRAP, For Time, Circuito) ================= */
 
-const BUILTIN_PRESETS = [
-  { name: 'Tabata classico (8×20/10)', prep: 10, work: 20, rest: 10, rounds: 8, sets: 1, recovery: 60 },
-  { name: 'Tabata 4 serie', prep: 10, work: 20, rest: 10, rounds: 8, sets: 4, recovery: 60 },
-  { name: '40/20 × 10', prep: 10, work: 40, rest: 20, rounds: 10, sets: 1, recovery: 0 },
-  { name: '30/30 × 10', prep: 10, work: 30, rest: 30, rounds: 10, sets: 1, recovery: 0 },
-];
-const KEYS = ['prep', 'work', 'rest', 'rounds', 'sets', 'recovery'];
+// Campi delle impostazioni: T = durata in secondi, N = numero
+const T = (key, label, min, max, step, zeroLabel) => ({ key, label, min, max, step, time: true, zeroLabel });
+const N = (key, label, min, max) => ({ key, label, min, max, step: 1 });
+const PREP = T('prep', 'Preparazione', 0, 600, 5);
 
-const PHASE_LABEL = { prep: 'PREPARATI', work: 'LAVORO', rest: 'RIPOSO', recovery: 'RECUPERO', done: 'FINITO!' };
-const PHASE_VOICE = { prep: 'Preparati', work: 'Via!', rest: 'Riposo', recovery: 'Recupero', done: 'Finito, ottimo lavoro!' };
+const PHASE_NAME = { prep: 'Preparati', warmup: 'Riscaldamento', work: 'Lavoro', rest: 'Riposo', recovery: 'Recupero', cooldown: 'Defaticamento' };
+const PHASE_VOICE = { prep: 'Preparati', warmup: 'Riscaldamento', work: 'Via!', rest: 'Riposo', recovery: 'Recupero', cooldown: 'Defaticamento' };
 
-const tabata = {
-  config: store.get('tb.config', { ...BUILTIN_PRESETS[0] }),
+const fmtDur = (s) => (s < 60 ? `${s} s` : fmtClock(s));
+
+const MODES = {
+  tabata: {
+    name: 'Tabata',
+    desc: 'Lavoro e riposo alternati, per round e serie.',
+    fields: [PREP, T('warmup', 'Riscaldamento', 0, 1800, 30, 'No'), T('work', 'Lavoro', 5, 3600, 5), T('rest', 'Riposo', 0, 3600, 5),
+      N('rounds', 'Round', 1, 99), N('sets', 'Serie', 1, 20), T('recovery', 'Recupero tra serie', 0, 3600, 15), T('cooldown', 'Defaticamento', 0, 1800, 30, 'No')],
+    presets: [
+      { name: 'Tabata classico (8×20/10)', prep: 10, warmup: 0, work: 20, rest: 10, rounds: 8, sets: 1, recovery: 60, cooldown: 0 },
+      { name: 'Tabata 4 serie', prep: 10, warmup: 0, work: 20, rest: 10, rounds: 8, sets: 4, recovery: 60, cooldown: 0 },
+      { name: '40/20 × 10', prep: 10, warmup: 0, work: 40, rest: 20, rounds: 10, sets: 1, recovery: 0, cooldown: 0 },
+      { name: '30/30 × 10', prep: 10, warmup: 0, work: 30, rest: 30, rounds: 10, sets: 1, recovery: 0, cooldown: 0 },
+    ],
+    build(c) {
+      const p = [];
+      if (c.warmup > 0) p.push({ type: 'warmup', dur: c.warmup });
+      for (let s = 1; s <= c.sets; s++) {
+        for (let r = 1; r <= c.rounds; r++) {
+          const last = r === c.rounds && s === c.sets;
+          const info = `Round ${r}/${c.rounds}${c.sets > 1 ? ` · Serie ${s}/${c.sets}` : ''}`;
+          p.push({ type: 'work', dur: c.work, info, voice: last && c.rounds > 1 ? 'Ultimo round, via!' : undefined });
+          if (r < c.rounds && c.rest > 0) p.push({ type: 'rest', dur: c.rest, info });
+        }
+        if (s < c.sets) {
+          const info = `Serie ${s}/${c.sets} completata`;
+          if (c.recovery > 0) p.push({ type: 'recovery', dur: c.recovery, info });
+          else if (c.rest > 0) p.push({ type: 'rest', dur: c.rest, info });
+        }
+      }
+      if (c.cooldown > 0) p.push({ type: 'cooldown', dur: c.cooldown });
+      return p;
+    },
+  },
+
+  emom: {
+    name: 'EMOM',
+    desc: 'All\'inizio di ogni intervallo fai le ripetizioni previste: il tempo che avanza è riposo.',
+    fields: [PREP, T('interval', 'Ogni', 10, 600, 5), N('rounds', 'Round', 1, 99)],
+    presets: [
+      { name: 'EMOM 10 minuti', prep: 10, interval: 60, rounds: 10 },
+      { name: 'EMOM 20 minuti', prep: 10, interval: 60, rounds: 20 },
+      { name: 'Ogni 2 minuti × 6', prep: 10, interval: 120, rounds: 6 },
+      { name: 'Ogni 30 s × 20', prep: 10, interval: 30, rounds: 20 },
+    ],
+    build(c) {
+      const p = [];
+      for (let r = 1; r <= c.rounds; r++) {
+        p.push({ type: 'work', name: 'EMOM', dur: c.interval, info: `Round ${r}/${c.rounds}`,
+          voice: r === c.rounds && r > 1 ? 'Ultimo round' : `Round ${r}` });
+      }
+      return p;
+    },
+  },
+
+  amrap: {
+    name: 'AMRAP',
+    desc: 'Più round possibili nel tempo dato. Tocca "+1 Round" a ogni giro completato.',
+    fields: [PREP, T('duration', 'Durata', 60, 7200, 30)],
+    counter: true,
+    presets: [
+      { name: 'AMRAP 10 minuti', prep: 10, duration: 600 },
+      { name: 'AMRAP 12 minuti', prep: 10, duration: 720 },
+      { name: 'AMRAP 15 minuti', prep: 10, duration: 900 },
+      { name: 'AMRAP 20 minuti', prep: 10, duration: 1200 },
+    ],
+    build(c) { return [{ type: 'work', name: 'AMRAP', dur: c.duration }]; },
+  },
+
+  fortime: {
+    name: 'For Time',
+    desc: 'Finisci il lavoro il prima possibile: il tempo sale. Tocca "Fatto" quando hai finito.',
+    fields: [PREP, T('cap', 'Tempo limite', 0, 7200, 60, 'Nessuno')],
+    counter: true,
+    countUp: true,
+    presets: [
+      { name: 'For Time, limite 10 minuti', prep: 10, cap: 600 },
+      { name: 'For Time, limite 15 minuti', prep: 10, cap: 900 },
+      { name: 'For Time, limite 20 minuti', prep: 10, cap: 1200 },
+      { name: 'For Time, senza limite', prep: 10, cap: 0 },
+    ],
+    build(c) {
+      // senza limite: una fase lunghissima che si chiude con "Fatto"
+      return [{ type: 'work', name: 'For Time', dur: c.cap || 24 * 3600, countUp: true, uncapped: !c.cap }];
+    },
+  },
+
+  circuit: {
+    name: 'Circuito',
+    desc: 'Una sequenza di esercizi, ognuno con nome e durata, ripetuta per più round.',
+    fields: [PREP, T('rest', 'Riposo tra esercizi', 0, 600, 5), N('rounds', 'Round', 1, 50), T('roundRest', 'Riposo tra round', 0, 1800, 15)],
+    exercises: true,
+    presets: [
+      { name: 'Corpo libero (5 esercizi × 3)', prep: 10, rest: 20, rounds: 3, roundRest: 60,
+        exercises: [{ name: 'Jumping jack', dur: 40 }, { name: 'Squat', dur: 40 }, { name: 'Piegamenti', dur: 40 }, { name: 'Plank', dur: 40 }, { name: 'Burpee', dur: 40 }] },
+      { name: 'Piramide 20-30-40-30-20', prep: 10, rest: 15, rounds: 1, roundRest: 0,
+        exercises: [{ name: 'Burpee', dur: 20 }, { name: 'Burpee', dur: 30 }, { name: 'Burpee', dur: 40 }, { name: 'Burpee', dur: 30 }, { name: 'Burpee', dur: 20 }] },
+      { name: 'Core (4 esercizi × 2)', prep: 10, rest: 15, rounds: 2, roundRest: 45,
+        exercises: [{ name: 'Crunch', dur: 45 }, { name: 'Plank', dur: 45 }, { name: 'Mountain climber', dur: 45 }, { name: 'Russian twist', dur: 45 }] },
+    ],
+    build(c) {
+      const p = [];
+      const ex = c.exercises;
+      for (let r = 1; r <= c.rounds; r++) {
+        ex.forEach((e, i) => {
+          const name = e.name.trim() || `Esercizio ${i + 1}`;
+          const info = `Round ${r}/${c.rounds} · Esercizio ${i + 1}/${ex.length}`;
+          const lastRound = r === c.rounds && c.rounds > 1 && i === 0;
+          p.push({ type: 'work', name, dur: e.dur, info, voice: lastRound ? `Ultimo round. ${name}` : name });
+          if (i < ex.length - 1 && c.rest > 0) p.push({ type: 'rest', dur: c.rest, info });
+        });
+        if (r < c.rounds) {
+          const info = `Round ${r}/${c.rounds} completato`;
+          if (c.roundRest > 0) p.push({ type: 'recovery', dur: c.roundRest, info });
+          else if (c.rest > 0) p.push({ type: 'rest', dur: c.rest, info });
+        }
+      }
+      return p;
+    },
+  },
+};
+
+// Tutte le modalità hanno la preparazione in testa
+function buildPhases(modeId, c) {
+  const phases = MODES[modeId].build(c);
+  if (c.prep > 0) phases.unshift({ type: 'prep', dur: c.prep });
+  return phases.map((ph) => ({ ...ph, name: ph.name || PHASE_NAME[ph.type], info: ph.info || '' }));
+}
+
+const presetValues = (modeId, p) => {
+  const mode = MODES[modeId];
+  const v = {};
+  mode.fields.forEach((f) => { v[f.key] = p[f.key]; });
+  if (mode.exercises) v.exercises = p.exercises.map((e) => ({ name: e.name, dur: e.dur }));
+  return v;
+};
+
+// Prima versione: un solo tipo (Tabata) con chiavi 'tb.config' e 'tb.presets'
+function loadConfigs() {
+  const saved = store.get('wo.configs', null);
+  const configs = {};
+  for (const [id, mode] of Object.entries(MODES)) {
+    const defaults = presetValues(id, mode.presets[0]);
+    const old = id === 'tabata' && !saved ? store.get('tb.config', {}) : {};
+    configs[id] = { ...defaults, ...old, ...(saved && saved[id]) };
+  }
+  return configs;
+}
+function loadPresets() {
+  const saved = store.get('wo.presets', null);
+  if (saved) return saved;
+  return store.get('tb.presets', []).map((p) => ({ mode: 'tabata', warmup: 0, cooldown: 0, ...p }));
+}
+
+const workout = {
+  modeId: MODES[store.get('wo.mode', 'tabata')] ? store.get('wo.mode', 'tabata') : 'tabata',
+  configs: loadConfigs(),
+  customPresets: loadPresets(),
   opts: store.get('tb.opts', { sound: true, voice: false }),
-  customPresets: store.get('tb.presets', []),
+
+  get mode() { return MODES[this.modeId]; },
+  get config() { return this.configs[this.modeId]; },
 
   // stato dell'esecuzione
   phases: [],
@@ -342,74 +497,137 @@ const tabata = {
   lastIdx: -1,
   lastSec: null,
   finished: false,
-
-  buildPhases(c) {
-    const p = [];
-    if (c.prep > 0) p.push({ type: 'prep', dur: c.prep, round: 1, set: 1 });
-    for (let s = 1; s <= c.sets; s++) {
-      for (let r = 1; r <= c.rounds; r++) {
-        p.push({ type: 'work', dur: c.work, round: r, set: s });
-        if (r < c.rounds && c.rest > 0) p.push({ type: 'rest', dur: c.rest, round: r, set: s });
-      }
-      if (s < c.sets) {
-        if (c.recovery > 0) p.push({ type: 'recovery', dur: c.recovery, round: c.rounds, set: s });
-        else if (c.rest > 0) p.push({ type: 'rest', dur: c.rest, round: c.rounds, set: s });
-      }
-    }
-    return p;
-  },
-
-  totalSeconds(c) { return this.buildPhases(c).reduce((sum, ph) => sum + ph.dur, 0); },
+  count: 0,       // round contati a mano (AMRAP / For Time)
+  runMode: null,  // modalità dell'allenamento in corso
 
   /* ---------- impostazioni ---------- */
 
-  formatValue(key, v) {
-    if (key === 'rounds' || key === 'sets') return String(v);
-    return v < 60 ? `${v} s` : fmtClock(v);
+  formatValue(field, v) {
+    if (!field.time) return String(v);
+    if (v === 0 && field.zeroLabel) return field.zeroLabel;
+    return fmtDur(v);
   },
 
   stepFor(field, value, dir) {
-    const base = Number(field.dataset.step);
-    if (!('time' in field.dataset)) return base;
-    // sopra il minuto si va a passi di 15 s
-    return (dir > 0 ? value >= 60 : value > 60) ? Math.max(base, 15) : base;
+    if (!field.time) return field.step;
+    // passi più grandi man mano che il valore cresce
+    const above = (limit) => (dir > 0 ? value >= limit : value > limit);
+    if (above(600)) return Math.max(field.step, 60);
+    if (above(60)) return Math.max(field.step, 15);
+    return field.step;
   },
 
-  change(field, dir) {
-    const key = field.dataset.key;
-    const min = Number(field.dataset.min);
-    const max = Number(field.dataset.max);
-    const v = this.config[key];
-    this.config[key] = Math.min(max, Math.max(min, v + dir * this.stepFor(field, v, dir)));
-    this.saveConfig();
-  },
+  clamp(field, v) { return Math.min(field.max, Math.max(field.min, v)); },
 
-  editDirect(field) {
-    const key = field.dataset.key;
-    const isTime = 'time' in field.dataset;
-    const answer = prompt(`${field.querySelector('.label').textContent}${isTime ? ' (secondi)' : ''}`, this.config[key]);
-    if (answer === null) return;
+  editNumber(title, isTime, current) {
+    const answer = prompt(`${title}${isTime ? ' (secondi)' : ''}`, current);
+    if (answer === null) return null;
     const n = Math.round(Number(answer.replace(',', '.')));
-    if (!Number.isFinite(n)) return;
-    this.config[key] = Math.min(Number(field.dataset.max), Math.max(Number(field.dataset.min), n));
-    this.saveConfig();
+    return Number.isFinite(n) ? n : null;
   },
 
-  saveConfig() {
-    store.set('tb.config', this.config);
-    this.renderSetup();
+  makeStepper(field, get, set) {
+    const stepper = document.createElement('div');
+    stepper.className = 'stepper';
+    stepper.innerHTML = '<button type="button" aria-label="meno">−</button><span class="value"></span><button type="button" aria-label="più">+</button>';
+    const [minus, plus] = stepper.querySelectorAll('button');
+    const value = stepper.querySelector('.value');
+    const render = () => { value.textContent = this.formatValue(field, get()); };
+    const change = (dir) => { set(this.clamp(field, get() + dir * this.stepFor(field, get(), dir))); render(); this.saveConfig(); };
+    holdToRepeat(minus, () => change(-1));
+    holdToRepeat(plus, () => change(+1));
+    value.addEventListener('click', () => {
+      const n = this.editNumber(field.label, field.time, get());
+      if (n === null) return;
+      set(this.clamp(field, n));
+      render();
+      this.saveConfig();
+    });
+    render();
+    return stepper;
   },
 
-  allPresets() { return [...BUILTIN_PRESETS, ...this.customPresets]; },
+  renderModeTabs() {
+    $$('#mode-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.mode === this.modeId));
+    $('#mode-desc').textContent = this.mode.desc;
+  },
+
+  renderFields() {
+    const box = $('#fields');
+    box.innerHTML = '';
+    for (const field of this.mode.fields) {
+      const row = document.createElement('div');
+      row.className = 'field';
+      row.innerHTML = `<span class="label">${field.label}</span>`;
+      row.appendChild(this.makeStepper(field, () => this.config[field.key], (v) => { this.config[field.key] = v; }));
+      box.appendChild(row);
+    }
+    this.renderExercises();
+  },
+
+  renderExercises() {
+    const box = $('#exercises');
+    box.classList.toggle('hidden', !this.mode.exercises);
+    if (!this.mode.exercises) return;
+    const list = this.config.exercises;
+    box.innerHTML = '<h3>Esercizi</h3>';
+    const durField = T('dur', 'Durata', 5, 3600, 5);
+    list.forEach((ex, i) => {
+      const row = document.createElement('div');
+      row.className = 'exercise-row';
+      row.innerHTML = `<span class="ex-num">${i + 1}</span>`;
+      const input = document.createElement('input');
+      input.className = 'ex-name';
+      input.value = ex.name;
+      input.placeholder = `Esercizio ${i + 1}`;
+      input.maxLength = 40;
+      input.addEventListener('input', () => { ex.name = input.value; this.saveConfig(false); });
+      input.addEventListener('change', () => this.renderValues());
+      row.appendChild(input);
+      row.appendChild(this.makeStepper(durField, () => ex.dur, (v) => { ex.dur = v; }));
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'ex-del';
+      del.setAttribute('aria-label', 'Elimina esercizio');
+      del.textContent = '✕';
+      del.disabled = list.length === 1;
+      del.addEventListener('click', () => { list.splice(i, 1); this.saveConfig(); this.renderExercises(); });
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'btn secondary ex-add';
+    add.textContent = '+ Aggiungi esercizio';
+    add.disabled = list.length >= 30;
+    add.addEventListener('click', () => {
+      const lastDur = list.length ? list[list.length - 1].dur : 40;
+      list.push({ name: '', dur: lastDur });
+      this.saveConfig();
+      this.renderExercises();
+      box.querySelectorAll('.ex-name')[list.length - 1].focus();
+    });
+    box.appendChild(add);
+  },
+
+  saveConfig(rerender = true) {
+    store.set('wo.configs', this.configs);
+    if (rerender) this.renderValues();
+  },
+
+  presetsForMode() {
+    return [...this.mode.presets.map((p) => ({ ...p, builtin: true })), ...this.customPresets.filter((p) => p.mode === this.modeId)];
+  },
 
   matchingPresetIndex() {
-    return this.allPresets().findIndex((p) => KEYS.every((k) => p[k] === this.config[k]));
+    const current = JSON.stringify(presetValues(this.modeId, this.config));
+    return this.presetsForMode().findIndex((p) => JSON.stringify(presetValues(this.modeId, p)) === current);
   },
 
   renderPresets() {
     const sel = $('#preset-select');
     sel.innerHTML = '<option value="-1">— Preset —</option>';
-    this.allPresets().forEach((p, i) => {
+    this.presetsForMode().forEach((p, i) => {
       const o = document.createElement('option');
       o.value = i;
       o.textContent = p.name;
@@ -417,65 +635,80 @@ const tabata = {
     });
   },
 
-  renderSetup() {
-    for (const field of $$('.field')) {
-      field.querySelector('.value').textContent = this.formatValue(field.dataset.key, this.config[field.dataset.key]);
+  totalLabel() {
+    if (this.mode.countUp) {
+      const cap = this.config.cap;
+      return cap ? `max ${fmtClock(cap + this.config.prep)}` : 'senza limite';
     }
-    $('#total-time').textContent = fmtClock(this.totalSeconds(this.config));
+    return fmtClock(buildPhases(this.modeId, this.config).reduce((sum, ph) => sum + ph.dur, 0));
+  },
+
+  renderValues() {
+    $('#total-time').textContent = this.totalLabel();
     $('#preset-select').value = String(this.matchingPresetIndex());
     $('#opt-sound').checked = this.opts.sound;
     $('#opt-voice').checked = this.opts.voice;
   },
 
+  renderSetup() {
+    this.renderModeTabs();
+    this.renderPresets();
+    this.renderFields();
+    this.renderValues();
+  },
+
+  setMode(id) {
+    this.modeId = id;
+    store.set('wo.mode', id);
+    this.renderSetup();
+  },
+
   initSetup() {
-    for (const field of $$('.field')) {
-      const stepper = document.createElement('div');
-      stepper.className = 'stepper';
-      stepper.innerHTML = '<button type="button" aria-label="meno">−</button><span class="value"></span><button type="button" aria-label="più">+</button>';
-      field.appendChild(stepper);
-      const [minus, plus] = stepper.querySelectorAll('button');
-      holdToRepeat(minus, () => this.change(field, -1));
-      holdToRepeat(plus, () => this.change(field, +1));
-      stepper.querySelector('.value').addEventListener('click', () => this.editDirect(field));
+    const tabs = $('#mode-tabs');
+    for (const [id, mode] of Object.entries(MODES)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.mode = id;
+      b.textContent = mode.name;
+      b.addEventListener('click', () => this.setMode(id));
+      tabs.appendChild(b);
     }
 
     $('#preset-select').addEventListener('change', (e) => {
-      const p = this.allPresets()[Number(e.target.value)];
+      const p = this.presetsForMode()[Number(e.target.value)];
       if (!p) return;
-      KEYS.forEach((k) => { this.config[k] = p[k]; });
+      this.configs[this.modeId] = presetValues(this.modeId, p);
       this.saveConfig();
+      this.renderFields();
     });
 
     $('#preset-save').addEventListener('click', () => {
       const name = prompt('Nome del preset');
       if (!name || !name.trim()) return;
-      const preset = { name: name.trim() };
-      KEYS.forEach((k) => { preset[k] = this.config[k]; });
-      const existing = this.customPresets.findIndex((p) => p.name === preset.name);
+      const preset = { name: name.trim(), mode: this.modeId, ...presetValues(this.modeId, this.config) };
+      const existing = this.customPresets.findIndex((p) => p.mode === this.modeId && p.name === preset.name);
       if (existing >= 0) this.customPresets[existing] = preset;
       else this.customPresets.push(preset);
-      store.set('tb.presets', this.customPresets);
+      store.set('wo.presets', this.customPresets);
       this.renderPresets();
-      this.renderSetup();
+      this.renderValues();
       toast(`Preset "${preset.name}" salvato`);
     });
 
     $('#preset-delete').addEventListener('click', () => {
-      const i = Number($('#preset-select').value);
-      if (i < 0) return toast('Scegli prima un preset');
-      if (i < BUILTIN_PRESETS.length) return toast('I preset predefiniti non si possono eliminare');
-      const p = this.customPresets[i - BUILTIN_PRESETS.length];
+      const p = this.presetsForMode()[Number($('#preset-select').value)];
+      if (!p) return toast('Scegli prima un preset');
+      if (p.builtin) return toast('I preset predefiniti non si possono eliminare');
       if (!confirm(`Eliminare "${p.name}"?`)) return;
-      this.customPresets.splice(i - BUILTIN_PRESETS.length, 1);
-      store.set('tb.presets', this.customPresets);
+      this.customPresets = this.customPresets.filter((c) => !(c.mode === p.mode && c.name === p.name));
+      store.set('wo.presets', this.customPresets);
       this.renderPresets();
-      this.renderSetup();
+      this.renderValues();
     });
 
     $('#opt-sound').addEventListener('change', (e) => { this.opts.sound = e.target.checked; store.set('tb.opts', this.opts); });
     $('#opt-voice').addEventListener('change', (e) => { this.opts.voice = e.target.checked; store.set('tb.opts', this.opts); });
 
-    this.renderPresets();
     this.renderSetup();
   },
 
@@ -486,16 +719,36 @@ const tabata = {
 
   start() {
     sound.unlock();
-    this.phases = this.buildPhases(this.config);
+    this.runMode = this.mode;
+    this.phases = buildPhases(this.modeId, this.config);
     this.starts = [];
     let t = 0;
     for (const ph of this.phases) { this.starts.push(t); t += ph.dur; }
     this.total = t;
+    this.prepDur = this.phases[0].type === 'prep' ? this.phases[0].dur : 0;
+    const main = this.phases[this.phases.length - 1];
+    this.capLabel = main.countUp && !main.uncapped ? `Limite ${fmtClock(main.dur)}` : '';
+    // con una sola fase principale (AMRAP) il tempo totale in alto sarebbe un doppione
+    this.showTotal = this.phases.filter((ph) => ph.type !== 'prep').length > 1;
     this.acc = 0;
+    this.count = 0;
     this.lastIdx = -1;
     this.lastSec = null;
     this.finished = false;
     this.startedAt = performance.now();
+
+    const m = this.runMode;
+    $('#tb-restart').classList.toggle('hidden', !!m.countUp);
+    $('#tb-done').classList.toggle('hidden', !m.countUp);
+    $('#tb-skip').classList.toggle('hidden', !!m.counter);
+    $('#tb-count').classList.toggle('hidden', !m.counter);
+    $('#run-counter').classList.toggle('hidden', !m.counter);
+    $('#cnt-minus').classList.remove('hidden');
+    // nelle modalità con contatore il pulsante principale è "+1 Round"
+    $('#tb-toggle').classList.toggle('primary', !m.counter);
+    $('#tb-toggle').classList.toggle('secondary', !!m.counter);
+    $('#tb-count').classList.toggle('primary', !!m.counter);
+    this.renderCount();
     $('#tabata-run').classList.remove('hidden');
     this.renderToggle();
     this.tick();
@@ -513,9 +766,24 @@ const tabata = {
   skip() {
     if (this.finished) return;
     const idx = this.currentIndex(this.elapsed());
+    if (this.phases[idx].countUp) return;
     this.acc = (this.starts[idx] + this.phases[idx].dur) * 1000;
     if (this.running()) this.startedAt = performance.now();
     this.tick();
+  },
+
+  addCount(delta) {
+    if (this.finished || !this.runMode.counter) return;
+    this.count = Math.max(0, this.count + delta);
+    if (delta > 0) sound.beep(1568, 0.08);
+    this.renderCount();
+  },
+
+  renderCount() {
+    $('#cnt-value').textContent = `${this.count} round`;
+    if (this.runMode && this.runMode.counter && !this.finished) {
+      $('#run-next').textContent = `${this.count} ${this.count === 1 ? 'round completato' : 'round completati'}`;
+    }
   },
 
   close() {
@@ -533,21 +801,32 @@ const tabata = {
   },
 
   finish() {
+    if (this.finished) return;
+    const ms = Math.min(this.elapsed(), this.total * 1000);
     this.finished = true;
     this.startedAt = null;
-    this.acc = this.total * 1000;
+    this.acc = ms;
+    const workTime = Math.floor(ms / 1000) - this.prepDur;
     const run = $('#tabata-run');
     run.dataset.phase = 'done';
     run.classList.remove('paused');
-    $('#run-phase').textContent = PHASE_LABEL.done;
-    $('#run-seconds').textContent = '✓';
-    $('#run-seconds').classList.remove('long');
-    $('#run-next').textContent = `Tempo totale ${fmtClock(this.total)}`;
-    $('#run-remaining').textContent = '0:00';
+    $('#run-phase').textContent = 'FINITO!';
+    $('#run-seconds').textContent = this.runMode.countUp ? fmtClock(Math.max(0, workTime)) : '✓';
+    $('#run-seconds').classList.toggle('long', !!this.runMode.countUp);
+    $('#run-next').textContent = this.runMode.counter
+      ? `${this.count} round · ${fmtClock(Math.max(0, workTime))}`
+      : `Tempo totale ${fmtClock(this.total)}`;
+    $('#run-remaining').textContent = '';
+    $('#run-round').textContent = '';
     $('#run-progress').style.width = '100%';
     $('#tb-toggle').textContent = 'Ancora';
+    $('#tb-done').classList.add('hidden');
+    $('#tb-count').classList.add('hidden');
+    $('#cnt-minus').classList.add('hidden');
+    $('#tb-restart').classList.add('hidden');
+    $('#tb-skip').classList.add('hidden');
     sound.beep(1046, 0.25); setTimeout(() => sound.beep(1046, 0.25), 300); setTimeout(() => sound.beep(1318, 0.6), 600);
-    sound.say(PHASE_VOICE.done);
+    sound.say(this.runMode.counter ? `Finito! ${this.count} round.` : 'Finito, ottimo lavoro!');
   },
 
   tick() {
@@ -557,36 +836,44 @@ const tabata = {
 
     const idx = this.currentIndex(ms);
     const ph = this.phases[idx];
-    const remainingMs = (this.starts[idx] + ph.dur) * 1000 - ms;
+    const phaseMs = ms - this.starts[idx] * 1000;
+    const remainingMs = ph.dur * 1000 - phaseMs;
     const sec = Math.ceil(remainingMs / 1000);
 
     if (idx !== this.lastIdx) {
       this.renderPhase(idx);
       sound.beep(ph.type === 'work' ? 1318 : 660, 0.45);
-      sound.say(PHASE_VOICE[ph.type]);
-    } else if (sec !== this.lastSec && sec <= 3 && sec > 0 && this.running()) {
+      sound.say(ph.voice || PHASE_VOICE[ph.type]);
+    } else if (sec !== this.lastSec && sec <= 3 && sec > 0 && this.running() && !ph.uncapped) {
       sound.beep(880, 0.12);
     }
     this.lastIdx = idx;
     this.lastSec = sec;
 
+    const long = ph.countUp || ph.dur >= 60;
+    const shown = ph.countUp ? Math.floor(phaseMs / 1000) : sec;
     const secEl = $('#run-seconds');
-    secEl.textContent = ph.dur >= 60 ? fmtClock(sec) : String(sec);
-    secEl.classList.toggle('long', ph.dur >= 60);
-    $('#run-remaining').textContent = fmtClock(Math.ceil(this.total - ms / 1000));
-    $('#run-progress').style.width = `${(1 - remainingMs / (ph.dur * 1000)) * 100}%`;
+    secEl.textContent = long ? fmtClock(shown) : String(shown);
+    secEl.classList.toggle('long', long);
+    $('#run-remaining').textContent = this.runMode.countUp ? this.capLabel
+      : this.showTotal ? fmtClock(Math.ceil(this.total - ms / 1000)) : '';
+    $('#run-progress').style.width = ph.uncapped ? '0%' : `${(phaseMs / (ph.dur * 1000)) * 100}%`;
   },
 
   renderPhase(idx) {
     const ph = this.phases[idx];
     const next = this.phases[idx + 1];
-    const run = $('#tabata-run');
-    run.dataset.phase = ph.type;
-    $('#run-phase').textContent = PHASE_LABEL[ph.type];
-    $('#run-round').textContent = `Round ${ph.round}/${this.config.rounds}`;
-    $('#run-set').textContent = `Serie ${ph.set}/${this.config.sets}`;
-    $('#run-set').classList.toggle('hidden', this.config.sets === 1);
-    $('#run-next').textContent = next ? `Poi: ${PHASE_LABEL[next.type].toLowerCase()} ${this.formatValue('work', next.dur)}` : 'Ultimo sforzo!';
+    $('#tabata-run').dataset.phase = ph.type;
+    const phaseEl = $('#run-phase');
+    phaseEl.textContent = ph.name.toUpperCase();
+    phaseEl.classList.toggle('small', ph.name.length > 12);
+    $('#run-round').textContent = ph.info;
+    let nextText = '';
+    if (next) nextText = `Poi: ${next.name.toLowerCase()} · ${fmtDur(next.dur)}`;
+    else if (!ph.countUp && !this.runMode.counter) nextText = 'Ultimo sforzo!';
+    $('#run-next').textContent = nextText;
+    $('#run-next').classList.toggle('counter-big', !!this.runMode.counter && ph.type === 'work');
+    if (this.runMode.counter && ph.type === 'work') this.renderCount();
   },
 
   renderToggle() {
@@ -600,6 +887,9 @@ const tabata = {
     $('#tb-toggle').addEventListener('click', () => this.toggle());
     $('#tb-skip').addEventListener('click', () => this.skip());
     $('#tb-restart').addEventListener('click', () => this.start());
+    $('#tb-count').addEventListener('click', () => this.addCount(+1));
+    $('#cnt-minus').addEventListener('click', () => this.addCount(-1));
+    $('#tb-done').addEventListener('click', () => this.finish());
     $('#tb-close').addEventListener('click', () => this.close());
     // tocco sui numeri grandi = pausa / riprendi
     $('#run-center').addEventListener('click', () => this.toggle());
@@ -635,27 +925,28 @@ document.addEventListener('keydown', (e) => {
   const key = e.key.toLowerCase();
   if (key === ' ') {
     e.preventDefault();
-    if (runVisible) tabata.toggle();
+    if (runVisible) workout.toggle();
     else if (swVisible) stopwatch.toggle();
   } else if (key === 'l' && swVisible && !runVisible) stopwatch.lap();
   else if (key === 'r' && swVisible && !runVisible && !stopwatch.running()) stopwatch.reset();
-  else if (key === 'n' && runVisible) tabata.skip();
-  else if (key === 'escape' && runVisible) tabata.close();
+  else if (key === 'n' && runVisible) workout.skip();
+  else if ((key === 'c' || key === 'enter') && runVisible) { e.preventDefault(); workout.addCount(+1); }
+  else if (key === 'escape' && runVisible) workout.close();
   else if (key === 'f') $('#fullscreen-btn').click();
 });
 
 /* ================= Avvio ================= */
 
 stopwatch.init();
-tabata.initSetup();
-tabata.initRun();
+workout.initSetup();
+workout.initRun();
 showView(store.get('ui.view', 'stopwatch'));
 wake.render();
 wake.acquire();
 
 setInterval(() => {
   if (stopwatch.running()) stopwatch.renderTime();
-  if (tabata.running()) tabata.tick();
+  if (workout.running()) workout.tick();
 }, 33);
 
 /* ================= Aggiornamenti ================= */

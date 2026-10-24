@@ -17,28 +17,37 @@ Senza account sviluppatore Apple non si può installare un'app nativa stabile su
 ## Funzioni (versione 1)
 
 ### Comuni
-- Schermo sempre acceso finché l'app è visibile, con indicatore 💡 dello stato.
+- Interruttore "Schermo sempre acceso" (blocca lo standby finché l'app è aperta; scelta ricordata).
+- Pulsante "Installa app" con istruzioni per iPad/iPhone, Mac e Android.
 - Pulsante schermo intero (Mac / Safari).
 - Numeri enormi, alto contrasto, tema scuro; si adatta a verticale e orizzontale.
-- Tutto funziona con tocchi grandi; su Mac anche da tastiera (Spazio = avvia/pausa).
-- Impostazioni salvate sul dispositivo.
+- Tutto funziona con tocchi grandi; su Mac anche da tastiera.
+- Impostazioni salvate sul dispositivo; aggiornamenti automatici.
 
 ### Cronometro
 - Avvia / Pausa / Azzera, formato `mm:ss.cc` (ore se serve).
 - Giri (lap) con tempo del giro e totale.
 - Preciso anche se l'app resta in pausa nel background (basato sull'orologio, non sui tick).
 
-### Tabata
-- Parametri: preparazione, lavoro, riposo, numero di round, numero di serie, recupero tra le serie.
-- Default: 10 s preparazione · 20 s lavoro · 10 s riposo · 8 round · 1 serie · 60 s recupero.
-- Schermo colorato per fase: **giallo** preparazione, **verde** lavoro, **rosso** riposo, **blu** recupero.
-- Mostra: fase, secondi rimanenti, round X/Y, serie X/Y, tempo totale rimanente, barra di avanzamento.
-- Segnali sonori: bip negli ultimi 3 secondi, bip lungo a cambio fase; voce opzionale ("Via", "Riposo"…).
-- Comandi: Avvia/Pausa, Salta fase, Ricomincia.
-- Preset salvabili (es. "Tabata classico", "EMOM leggero").
+### Allenamento (5 modalità)
+| Modalità | Come funziona | Parametri |
+|---|---|---|
+| **Tabata** | Lavoro e riposo alternati, per round e serie | preparazione, riscaldamento, lavoro, riposo, round, serie, recupero tra serie, defaticamento |
+| **EMOM** | Un intervallo ogni N secondi (di solito 1 minuto) | preparazione, ogni, round |
+| **AMRAP** | Conto alla rovescia unico; "+1 Round" conta i giri | preparazione, durata |
+| **For Time** | Il tempo sale; "Fatto" ferma e mostra il tempo | preparazione, tempo limite (anche nessuno) |
+| **Circuito** | Esercizi con nome e durata propria, ripetuti per più round (anche piramidi) | preparazione, esercizi, riposo tra esercizi, round, riposo tra round |
+
+- Schermo colorato per fase: **giallo** preparazione, **arancio** riscaldamento, **verde** lavoro, **rosso** riposo,
+  **blu** recupero, **verde acqua** defaticamento, **viola** fine.
+- Mostra: fase o nome dell'esercizio, tempo, round, tempo totale rimanente, cosa viene dopo, barra di avanzamento.
+- Segnali sonori: bip negli ultimi 3 secondi, bip lungo a cambio fase; voce opzionale
+  ("Via", "Riposo", nome dell'esercizio, "Ultimo round").
+- Comandi: Pausa (anche toccando i numeri), Salta fase, Ricomincia; "+1 Round" e "Fatto" dove servono.
+- Preset predefiniti per ogni modalità e preset personali salvabili.
 
 ## Fuori scope (per ora)
-Account, sincronizzazione, statistiche, musica, Apple Watch, notifiche a schermo spento.
+Account, sincronizzazione, storico/statistiche, musica, Apple Watch, notifiche a schermo spento.
 
 ## Roadmap a fasi
 1. **Ora** — PWA in locale sul Mac per provarla.

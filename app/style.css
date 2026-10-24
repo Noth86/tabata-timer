@@ -10,6 +10,8 @@
   --rest: #e74c3c;
   --recovery: #2980b9;
   --done: #8e44ad;
+  --warmup: #e67e22;
+  --cooldown: #16a085;
   --radius: 16px;
   color-scheme: dark;
 }
@@ -294,6 +296,8 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .run[data-phase="work"]     { --phase-color: var(--work); }
 .run[data-phase="rest"]     { --phase-color: var(--rest); }
 .run[data-phase="recovery"] { --phase-color: var(--recovery); }
+.run[data-phase="warmup"]   { --phase-color: var(--warmup); color: #2b1600; }
+.run[data-phase="cooldown"] { --phase-color: var(--cooldown); }
 .run[data-phase="done"]     { --phase-color: var(--done); }
 .run.paused .run-seconds { opacity: .45; }
 
@@ -345,3 +349,66 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .run-seconds.long { font-size: min(30vw, 45vh); }
 
 .app-version { border: 0; background: transparent; color: var(--muted); font-size: 14px; opacity: .7; padding: 8px; align-self: center; }
+
+/* ---------- modalità di allenamento ---------- */
+.modes {
+  display: flex;
+  gap: 6px;
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.modes button {
+  flex: 1 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 700;
+  padding: 12px 16px;
+  border-radius: 10px;
+}
+.modes button.active { background: var(--accent); color: #06210f; }
+.mode-desc { margin: -6px 4px 0; color: var(--muted); font-size: 17px; text-align: center; }
+
+/* editor esercizi del circuito */
+.exercises { display: flex; flex-direction: column; gap: 10px; }
+.exercises h3 { margin: 6px 4px 0; font-size: 20px; }
+.exercise-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.ex-num { width: 26px; text-align: center; color: var(--muted); font-weight: 700; font-size: 18px; flex: 0 0 auto; }
+.ex-name {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 0;
+  border-radius: 12px;
+  padding: 14px;
+  font: inherit;
+  font-size: 20px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.ex-del { border: 0; background: transparent; color: var(--muted); font-size: 22px; width: 44px; height: 44px; border-radius: 12px; flex: 0 0 auto; }
+.ex-del:disabled { opacity: .25; }
+.ex-add { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .exercise-row { flex-wrap: wrap; }
+  .ex-name { flex-basis: calc(100% - 90px); }
+}
+
+/* contatore round (AMRAP / For Time) */
+.run-counter { display: inline-flex; align-items: center; gap: 10px; }
+.mini-btn { border: 0; background: rgba(0,0,0,.2); color: inherit; width: 40px; height: 40px; border-radius: 50%; font-size: 24px; font-weight: 700; }
+.run-next.counter-big { font-size: min(7vw, 7vh); font-weight: 800; opacity: 1; }
+.run-phase.small { font-size: min(7vw, 9vh); text-align: center; }
+.run-phase { text-align: center; overflow-wrap: anywhere; }

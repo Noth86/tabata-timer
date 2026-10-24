@@ -1,6 +1,6 @@
 # Tabata Timer
 
-Cronometro + timer Tabata a tutto schermo, senza pubblicità, che tiene lo schermo acceso.
+Cronometro + timer per allenamenti (Tabata, EMOM, AMRAP, For Time, Circuito) a tutto schermo, senza pubblicità, che tiene lo schermo acceso.
 Specifiche del prodotto in [PRODOTTO.md](PRODOTTO.md).
 
 ## Provarlo sul Mac
@@ -8,7 +8,7 @@ Specifiche del prodotto in [PRODOTTO.md](PRODOTTO.md).
 ./serve.sh
 ```
 Poi apri http://localhost:8080 (meglio in Safari o Chrome). Tasti: **Spazio** avvia/pausa, **L** giro,
-**R** azzera, **N** salta fase, **F** schermo intero, **Esc** chiude il Tabata.
+**R** azzera, **N** salta fase, **C** o **Invio** +1 round (AMRAP / For Time), **F** schermo intero, **Esc** chiude l'allenamento.
 
 ## Metterlo sull'iPad
 L'iPad ha bisogno di un indirizzo **https** (altrimenti niente schermo sempre acceso e niente offline).
