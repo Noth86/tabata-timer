@@ -37,13 +37,68 @@ function toast(msg, ms = 3500) {
 
 /* ================= Schermo sempre acceso ================= */
 
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
+// Audio "ambient": i suoni dell'app (bip e video anti-oscuramento) si mescolano a Spotify / Apple Music
+// invece di interromperli, e l'app non compare tra i contenuti "In riproduzione" (Safari 17+).
+function setAmbientAudio() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { /* non supportato */ }
+}
+setAmbientAudio();
+
 const wake = {
   lock: null,
-  supported: 'wakeLock' in navigator,
+  hasWakeLock: 'wakeLock' in navigator,
+  // Su iPad e iPhone il blocco dello standby di Safari evita il blocco dello schermo ma non sempre l'oscuramento.
+  // Un video minuscolo in riproduzione lo tiene acceso a piena luminosità (tecnica di NoSleep.js, licenza MIT).
+  // Attenzione: WebKit ignora i video in loop e quelli senza audio, per questo il video ha una traccia audio muta
+  // e invece di andare in loop viene riportato indietro mentre suona.
+  useVideo: IS_IOS,
+  video: null,
+  videoPlaying: false,
   enabled: store.get('wake.enabled', true),
 
+  get supported() { return this.hasWakeLock || this.useVideo; },
+  // su iPad/iPhone conta il video (il blocco da solo non evita l'oscuramento), altrove il blocco dello standby
+  get active() { return this.useVideo ? this.videoPlaying : !!this.lock; },
+
+  setupVideo() {
+    if (!this.useVideo) return;
+    const v = document.createElement('video');
+    // caricato in memoria (blob): Safari chiede i video "a pezzi" e dalla cache offline potrebbe non riuscire
+    fetch('media/nosleep.mp4')
+      .then((r) => r.blob())
+      .then((b) => { v.src = URL.createObjectURL(b); })
+      .catch(() => { v.src = 'media/nosleep.mp4'; });
+    v.className = 'nosleep';
+    v.setAttribute('playsinline', '');
+    v.setAttribute('aria-hidden', 'true');
+    v.setAttribute('disablepictureinpicture', '');
+    v.setAttribute('disableremoteplayback', '');
+    v.setAttribute('x-webkit-airplay', 'deny');
+    v.tabIndex = -1;
+    v.addEventListener('timeupdate', () => { if (v.currentTime > 0.5) v.currentTime = Math.random(); });
+    // rete di sicurezza: se per qualche motivo arriva alla fine, riparte
+    v.addEventListener('ended', () => { v.currentTime = 0; this.playVideo(); });
+    v.addEventListener('playing', () => { if (!this.videoPlaying) { this.videoPlaying = true; this.render(); } });
+    v.addEventListener('pause', () => {
+      this.videoPlaying = false;
+      this.render();
+      // fermato da fuori (cuffie, Centro di Controllo): se l'interruttore è acceso prova a ripartire
+      if (this.enabled && !this.pausingOnPurpose) setTimeout(() => this.playVideo(), 500);
+    });
+    document.body.appendChild(v);
+    this.video = v;
+  },
+
+  // va chiamata durante un tocco: iPad fa partire un video con audio solo dopo un'interazione
+  playVideo() {
+    if (!this.video || !this.enabled || !this.video.paused || document.visibilityState !== 'visible') return;
+    this.video.play().catch(() => {});
+  },
+
   async acquire() {
-    if (!this.supported || !this.enabled || this.lock || document.visibilityState !== 'visible') return;
+    if (!this.hasWakeLock || !this.enabled || this.lock || document.visibilityState !== 'visible') return;
     try {
       this.lock = await navigator.wakeLock.request('screen');
       this.lock.addEventListener('release', () => { this.lock = null; this.render(); });
@@ -57,7 +112,7 @@ const wake = {
     const el = $('#wake-indicator');
     const on = this.supported && this.enabled;
     el.classList.toggle('enabled', on);
-    el.classList.toggle('pending', on && !this.lock);
+    el.classList.toggle('pending', on && !this.active);
     el.classList.toggle('unsupported', !this.supported);
     el.setAttribute('aria-checked', String(on));
     $('#wake-label').textContent = this.supported ? 'Schermo sempre acceso' : 'Standby non bloccabile';
@@ -71,9 +126,11 @@ const wake = {
     this.enabled = !this.enabled;
     store.set('wake.enabled', this.enabled);
     if (this.enabled) {
+      this.playVideo();
       await this.acquire();
       toast('Schermo sempre acceso: attivo finché l\'app è aperta.');
     } else {
+      if (this.video) { this.pausingOnPurpose = true; this.video.pause(); this.pausingOnPurpose = false; }
       const lock = this.lock;
       this.lock = null;
       if (lock) await lock.release();
@@ -83,13 +140,18 @@ const wake = {
   },
 };
 
+wake.setupVideo();
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') wake.acquire();
+  if (document.visibilityState !== 'visible') return;
+  wake.acquire();
+  wake.playVideo(); // di solito iPad lo lascia ripartire; se no, l'interruttore resta arancione fino al prossimo tocco
 });
 // Alcuni browser concedono il blocco solo dopo un'interazione: riproviamo a ogni tocco finché non è attivo.
 // (il tocco sull'interruttore stesso è escluso, altrimenti lo riattiverebbe mentre lo si spegne)
 document.addEventListener('pointerdown', (e) => {
-  if (!e.target.closest('#wake-indicator')) wake.acquire();
+  if (e.target.closest('#wake-indicator')) return;
+  wake.playVideo();
+  wake.acquire();
 }, { capture: true });
 $('#wake-indicator').addEventListener('click', () => wake.toggle());
 
@@ -189,7 +251,7 @@ const sound = {
   ctx: null,
 
   unlock() {
-    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* non supportato */ }
+    setAmbientAudio();
     if (!this.ctx) {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
@@ -972,7 +1034,9 @@ const updates = {
   pendingReload: false,
 
   // non ricarichiamo mai durante un allenamento Tabata (il cronometro invece sopravvive alla ricarica)
-  safeToReload() { return $('#tabata-run').classList.contains('hidden'); },
+  // mai durante un allenamento né con il cronometro in corso: dopo una ricarica il video anti-oscuramento
+  // riparte solo con un tocco, e lo schermo potrebbe oscurarsi mentre ti alleni
+  safeToReload() { return $('#tabata-run').classList.contains('hidden') && !stopwatch.running(); },
 
   async check() {
     if (!this.reg) return;
@@ -998,7 +1062,7 @@ const updates = {
       if (this.safeToReload()) location.reload();
       else {
         this.pendingReload = true;
-        toast('Aggiornamento pronto: verrà applicato alla fine dell\'allenamento.');
+        toast('Aggiornamento pronto: verrà applicato quando fermi il timer.');
       }
     });
 

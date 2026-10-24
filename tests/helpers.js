@@ -7,6 +7,17 @@ const { expect } = require('@playwright/test');
  * Con `clock: true` il tempo è simulato: avanza solo con advance(), così un AMRAP di 10 minuti dura millisecondi.
  */
 async function openApp(page, { storage = {}, clock = true } = {}) {
+  // QA_FONT="Verdana" npx playwright test → simula un carattere più largo (come DejaVu Sans su Linux o
+  // i font di certi Android), per vedere se l'impaginazione regge anche senza i font Apple
+  if (process.env.QA_FONT) {
+    await page.addInitScript((font) => {
+      document.addEventListener('DOMContentLoaded', () => {
+        const st = document.createElement('style');
+        st.textContent = `* { font-family: ${font} !important; }`;
+        document.head.appendChild(st);
+      });
+    }, process.env.QA_FONT);
+  }
   await page.addInitScript((s) => {
     // solo al primo caricamento della scheda: le ricariche successive conservano la memoria, come sull'iPad
     if (sessionStorage.getItem('__qa_init')) return;

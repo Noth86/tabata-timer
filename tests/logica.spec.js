@@ -299,6 +299,19 @@ test.describe('Schermo sempre acceso', () => {
         },
       },
     });
+    // finta riproduzione video (WebKit dei test su Linux non ha il codec H.264)
+    window.__video = { plays: 0, pauses: 0 };
+    HTMLMediaElement.prototype.play = function () {
+      window.__video.plays++;
+      Object.defineProperty(this, 'paused', { configurable: true, get: () => false });
+      this.dispatchEvent(new Event('playing'));
+      return Promise.resolve();
+    };
+    HTMLMediaElement.prototype.pause = function () {
+      window.__video.pauses++;
+      Object.defineProperty(this, 'paused', { configurable: true, get: () => true });
+      this.dispatchEvent(new Event('pause'));
+    };
   };
 
   test('si attiva da solo, si spegne e si riaccende con l\'interruttore', async ({ page }) => {
@@ -306,6 +319,7 @@ test.describe('Schermo sempre acceso', () => {
     await openApp(page);
     const sw = page.locator('#wake-indicator');
     await expect(sw).toHaveClass(/enabled/);
+    await page.click('#sw-main'); // su iPad il video parte solo dopo un tocco
     await expect(sw).not.toHaveClass(/pending/);
     await sw.click();
     await expect(sw).toHaveAttribute('aria-checked', 'false');
@@ -319,10 +333,47 @@ test.describe('Schermo sempre acceso', () => {
     await expect(sw).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('senza supporto del browser lo dice chiaramente', async ({ page }) => {
+  test('iPad: il video anti-oscuramento parte al primo tocco e si ferma con l\'interruttore', async ({ page }) => {
+    await page.addInitScript(mockWakeLock);
+    await openApp(page);
+    const sw = page.locator('#wake-indicator');
+    await expect(page.locator('video.nosleep')).toHaveCount(1);
+    // prima di un tocco l'iPad non fa partire il video: interruttore arancione
+    await expect(sw).toHaveClass(/pending/);
+    await page.click('#sw-main');
+    await expect(sw).not.toHaveClass(/pending/);
+    expect(await page.evaluate(() => window.__video.plays)).toBe(1);
+    await sw.click();
+    expect(await page.evaluate(() => window.__video.pauses)).toBe(1);
+    await page.click('#sw-main'); // spento: un tocco non lo fa ripartire
+    expect(await page.evaluate(() => window.__video.plays)).toBe(1);
+    await sw.click();
+    await expect(sw).not.toHaveClass(/pending/);
+    expect(await page.evaluate(() => window.__video.plays)).toBe(2);
+  });
+
+  test('Mac: niente video, basta il blocco dello standby', async ({ browser }) => {
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15',
+      viewport: { width: 1440, height: 900 },
+      serviceWorkers: 'block',
+    });
+    const page = await context.newPage();
+    await page.addInitScript(mockWakeLock);
+    await openApp(page);
+    await expect(page.locator('video.nosleep')).toHaveCount(0);
+    await expect(page.locator('#wake-indicator')).not.toHaveClass(/pending/);
+    await context.close();
+  });
+
+  test('senza supporto del browser lo dice chiaramente', async ({ browser }) => {
+    // su iPad c'è sempre il video, quindi questo caso esiste solo fuori da iOS
+    const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15', serviceWorkers: 'block' });
+    const page = await context.newPage();
     await page.addInitScript(() => { delete Navigator.prototype.wakeLock; });
     await openApp(page);
     await expect(page.locator('#wake-label')).toHaveText('Standby non bloccabile');
+    await context.close();
   });
 });
 

@@ -12,7 +12,8 @@ module.exports = defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0, // niente secondi tentativi: un test che passa solo a volte deve farsi notare
-  reporter: [['list'], ['html', { open: 'never' }]],
+  // su GitHub anche 'github': ogni errore compare come annotazione leggibile nella pagina della pubblicazione
+  reporter: process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: `http://localhost:${PORT}`,
     serviceWorkers: 'block',

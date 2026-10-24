@@ -45,11 +45,14 @@ app/                  la web app (pubblicata così com'è)
   sw.js               service worker: offline e aggiornamenti
   manifest.webmanifest
   icons/
+  media/              video muto che su iPad tiene lo schermo a piena luminosità (da NoSleep.js, MIT)
 .github/workflows/    pubblicazione automatica su GitHub Pages
 tests/                test automatici (Playwright)
 .claude/agents/qa.md  agente QA che prova l'app prima di ogni rilascio
 serve.sh              server locale per provarla
 ```
+
+Con `QA_FONT="Verdana" npm test` i test simulano un carattere più largo, come quello dei server Linux di GitHub.
 
 Per provarla sul Mac:
 ```bash

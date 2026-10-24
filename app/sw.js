@@ -2,7 +2,7 @@
 // ogni push cambia questo file, e il browser capisce da solo che c'è un aggiornamento.
 const VERSION = '__VERSION__';
 const CACHE = `tabata-${VERSION}`;
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'media/nosleep.mp4'];
 
 self.addEventListener('install', (e) => {
   // cache: 'reload' salta la cache HTTP (GitHub Pages la tiene 10 minuti)

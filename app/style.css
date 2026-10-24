@@ -140,7 +140,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   .install-label { display: none; }
   .pill.install { padding: 0 14px; }
 }
-@media (max-width: 700px) {
+@media (max-width: 740px) {
   .pill-label { display: none; }
   .pill { padding: 0 14px; }
 }
@@ -254,6 +254,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 .field {
   display: flex;
+  flex-wrap: wrap; /* se etichetta e pulsanti non stanno su una riga, i pulsanti vanno sotto (a destra) */
   align-items: center;
   justify-content: space-between;
   background: var(--surface);
@@ -262,7 +263,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   gap: 12px;
 }
 .field .label { font-size: 20px; font-weight: 600; }
-.stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.stepper { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 .stepper button {
   border: 0;
   width: 56px;
@@ -361,12 +362,11 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 /* ---------- modalità di allenamento ---------- */
 .modes {
   display: flex;
+  flex-wrap: wrap; /* se le modalità non stanno su una riga vanno a capo, mai nascoste di lato */
   gap: 6px;
   background: var(--surface);
   border-radius: 14px;
   padding: 5px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 .modes button {
   flex: 1 0 auto;
@@ -447,9 +447,6 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 /* solo i telefoni più stretti (iPhone SE prima generazione, 320 px): stepper sotto l'etichetta */
 @media (max-width: 360px) {
-  .field { flex-wrap: wrap; }
-  .field .label { flex: 1 1 100%; }
-  .field .stepper { margin-left: auto; }
   .run-top { font-size: 16px; gap: 8px; }
   .run-info { gap: 8px; }
   .run-counter { gap: 6px; }
@@ -467,3 +464,9 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   .progress { margin: 4px auto 8px; }
   .run-controls .btn { padding: 10px 8px; }
 }
+
+/* video "anti-oscuramento" per iPad/iPhone: deve essere nella pagina e visibile per WebKit, ma impercettibile */
+.nosleep { position: fixed; right: 0; bottom: 0; width: 2px; height: 2px; opacity: .01; pointer-events: none; z-index: 60; }
+
+/* i pulsanti dell'allenamento si adattano alla larghezza: "Ricomincia" non deve mai essere tagliato */
+.run-controls .btn { font-size: clamp(14px, 4.4vw, 24px); padding-left: 4px; padding-right: 4px; }

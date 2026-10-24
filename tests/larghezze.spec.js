@@ -61,6 +61,9 @@ test('telefoni in orizzontale', async ({ page }, testInfo) => {
 });
 
 test('la barra in alto resta su una riga da 568 px in su', async ({ page }) => {
+  // misura una scelta estetica che dipende dalla larghezza dei font Apple: su Linux (GitHub) o con QA_FONT
+  // la barra può andare su due righe, ed è corretto (gli altri test verificano che non esca mai dallo schermo)
+  test.skip(!!process.env.CI || !!process.env.QA_FONT, 'dipende dai font Apple, presenti solo sul Mac');
   await openApp(page);
   for (let w = 568; w <= 1440; w += 16) {
     await page.setViewportSize({ width: w, height: HEIGHT });
