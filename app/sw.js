@@ -1,5 +1,5 @@
 // Cambia la versione a ogni modifica dei file, così l'iPad scarica la nuova versione.
-const CACHE = 'tabata-v1';
+const CACHE = 'tabata-v2';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {

@@ -21,10 +21,27 @@
       <button class="tab" data-view="tabata" role="tab">Tabata</button>
     </nav>
     <div class="top-actions">
-      <button id="wake-indicator" class="icon-btn" title="Stato schermo sempre acceso">💡</button>
-      <button id="fullscreen-btn" class="icon-btn" title="Schermo intero">⛶</button>
+      <button id="wake-indicator" class="pill" title="Stato dello schermo">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        <span class="dot"></span>
+        <span id="wake-label" class="pill-label">Schermo: verifica…</span>
+      </button>
+      <button id="install-btn" class="pill install hidden" title="Installa come app">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>
+        <span class="pill-label">Installa app</span>
+      </button>
+      <button id="fullscreen-btn" class="icon-btn" title="Schermo intero">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
     </div>
   </header>
+
+  <dialog id="install-dialog" class="sheet">
+    <h2>Installa Tabata Timer</h2>
+    <p class="sheet-intro">È una web app: installata, si apre dall'icona a tutto schermo, senza barre del browser, e funziona anche senza internet.</p>
+    <div id="install-steps"></div>
+    <form method="dialog"><button class="btn primary">Ho capito</button></form>
+  </dialog>
 
   <!-- CRONOMETRO -->
   <main id="view-stopwatch" class="view active">

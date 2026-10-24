@@ -76,9 +76,63 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   display: grid;
   place-items: center;
 }
-#wake-indicator { opacity: .35; filter: grayscale(1); }
-#wake-indicator.on { opacity: 1; filter: none; }
-#wake-indicator.unsupported { opacity: 1; filter: none; background: #5a2a1a; }
+.icon-btn svg, .pill svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.pill {
+  border: 0;
+  background: var(--surface);
+  height: 48px;
+  padding: 0 16px 0 14px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pill.install { background: var(--surface-2); color: var(--text); }
+
+/* stato "schermo sempre acceso": pallino colorato + testo */
+#wake-indicator .dot { width: 10px; height: 10px; border-radius: 50%; background: #f39c12; flex: 0 0 auto; }
+#wake-indicator.on { color: var(--text); }
+#wake-indicator.on .dot { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+#wake-indicator.unsupported .dot { background: var(--rest); }
+
+@media (max-width: 640px) {
+  .pill-label { display: none; }
+  .pill { padding: 0 14px; }
+}
+
+/* ---------- foglio istruzioni installazione ---------- */
+.sheet {
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  width: min(560px, calc(100vw - 32px));
+  padding: 24px;
+  font-size: 18px;
+  line-height: 1.45;
+}
+.sheet::backdrop { background: rgba(0, 0, 0, .6); }
+.sheet h2 { margin: 0 0 8px; font-size: 24px; }
+.sheet-intro { margin: 0 0 16px; color: var(--muted); }
+.sheet ol { margin: 0 0 20px; padding-left: 24px; }
+.sheet li { margin-bottom: 10px; }
+.sheet li svg { width: 20px; height: 20px; vertical-align: -4px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sheet .btn { width: 100%; }
+.sheet .note { color: var(--muted); font-size: 16px; margin: 0 0 20px; }
 
 /* ---------- viste ---------- */
 .view { display: none; flex: 1; min-height: 0; flex-direction: column; align-items: center; padding: 8px 16px 24px; }
@@ -253,7 +307,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(env(safe-area-inset-bottom) + 24px);
+  top: calc(env(safe-area-inset-top) + 76px);
   transform: translateX(-50%);
   background: var(--surface-2);
   color: var(--text);

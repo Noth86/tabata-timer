@@ -52,15 +52,17 @@ const wake = {
     const el = $('#wake-indicator');
     el.classList.toggle('on', !!this.lock);
     el.classList.toggle('unsupported', !this.supported);
+    $('#wake-label').textContent = !this.supported ? 'Standby non bloccabile'
+      : this.lock ? 'Schermo sempre acceso' : 'Lo schermo può spegnersi';
   },
 
   explain() {
     if (!this.supported) {
-      toast('Questo browser non può tenere lo schermo acceso. Su iPad: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.', 7000);
+      toast('Questo browser non può impedire lo standby. Su iPad: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.', 7000);
     } else if (this.lock) {
-      toast('Schermo sempre acceso: attivo 💡');
+      toast('Lo schermo resta acceso finché l\'app è aperta in primo piano.');
     } else {
-      toast('Schermo sempre acceso non ancora attivo: tocca un punto qualsiasi dello schermo.');
+      toast('Blocco dello standby non ancora attivo: tocca un punto qualsiasi dello schermo.');
       this.acquire();
     }
   },
@@ -75,18 +77,93 @@ $('#wake-indicator').addEventListener('click', () => wake.explain());
 
 /* ================= Schermo intero ================= */
 
+// true quando l'app è aperta dall'icona installata (non dentro il browser)
+const isStandalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+
 (function setupFullscreen() {
   const btn = $('#fullscreen-btn');
   const root = document.documentElement;
   const request = root.requestFullscreen || root.webkitRequestFullscreen;
-  const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone;
-  if (!request || standalone) { btn.classList.add('hidden'); return; }
+  if (!request || isStandalone) { btn.classList.add('hidden'); return; }
   btn.addEventListener('click', () => {
     const current = document.fullscreenElement || document.webkitFullscreenElement;
     if (current) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     else request.call(root);
   });
 })();
+
+/* ================= Installazione come app ================= */
+
+const SHARE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M7 11H5v10h14V11h-2"/></svg>';
+
+const install = {
+  deferredPrompt: null, // Chrome / Edge / Android: finestra di installazione nativa
+
+  platform() {
+    const ua = navigator.userAgent;
+    // iPadOS si presenta come Mac: lo riconosciamo dal touch
+    const iOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (iOS) return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios';
+    if (/Macintosh/.test(ua) && /Safari/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua)) return 'mac-safari';
+    return 'other';
+  },
+
+  steps() {
+    switch (this.platform()) {
+      case 'ios':
+        return `<ol>
+          <li>Tocca <strong>Condividi</strong> ${SHARE_ICON} nella barra di Safari (se non lo vedi, è nel menu <strong>···</strong>).</li>
+          <li>Scegli <strong>Aggiungi alla schermata Home</strong>.</li>
+          <li>Tocca <strong>Aggiungi</strong>, poi apri l'app dall'icona sulla Home.</li>
+        </ol>`;
+      case 'ios-other':
+        return `<p class="note">Per il risultato migliore apri questa pagina in <strong>Safari</strong>.</p>
+        <ol>
+          <li>Tocca <strong>Condividi</strong> ${SHARE_ICON}.</li>
+          <li>Scegli <strong>Aggiungi alla schermata Home</strong>.</li>
+        </ol>`;
+      case 'mac-safari':
+        return `<ol>
+          <li>Nel menu <strong>File</strong> di Safari scegli <strong>Aggiungi al Dock…</strong></li>
+          <li>Apri l'app dal Dock o da Launchpad.</li>
+        </ol>`;
+      default:
+        return `<ol>
+          <li>Apri il menu del browser (<strong>⋮</strong> o <strong>···</strong>).</li>
+          <li>Scegli <strong>Installa app</strong> o <strong>Aggiungi alla schermata Home</strong>.</li>
+        </ol>`;
+    }
+  },
+
+  async open() {
+    if (this.deferredPrompt) {
+      this.deferredPrompt.prompt();
+      const { outcome } = await this.deferredPrompt.userChoice;
+      this.deferredPrompt = null;
+      if (outcome === 'accepted') $('#install-btn').classList.add('hidden');
+      return;
+    }
+    $('#install-steps').innerHTML = this.steps();
+    $('#install-dialog').showModal();
+  },
+
+  init() {
+    if (isStandalone) return;
+    const btn = $('#install-btn');
+    btn.classList.remove('hidden');
+    btn.addEventListener('click', () => this.open());
+    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); this.deferredPrompt = e; });
+    window.addEventListener('appinstalled', () => btn.classList.add('hidden'));
+    // chiude il foglio toccando fuori
+    $('#install-dialog').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+    if (!store.get('ui.installHint', false)) {
+      store.set('ui.installHint', true);
+      setTimeout(() => toast('Suggerimento: puoi installarla come app con il pulsante "Installa app" in alto.', 6000), 1500);
+    }
+  },
+};
+
+install.init();
 
 /* ================= Audio e voce ================= */
 
