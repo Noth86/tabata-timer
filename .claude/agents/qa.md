@@ -36,6 +36,11 @@ non vedono:
 - differenze strane tra una misura e l'altra della stessa schermata.
 
 ## 4. Prova manuale nel browser
+**Silenzio obbligatorio:** l'utente lavora e fa riunioni mentre tu provi l'app, quindi niente bip né voce.
+Subito dopo aver aperto l'app (e dopo ogni ricarica) esegui con `javascript_tool`:
+`window.AudioContext = window.webkitAudioContext = class { constructor(){ this.state='running'; this.currentTime=0; this.destination={connect(){}} } createOscillator(){ const p={value:0,setValueAtTime(){},exponentialRampToValueAtTime(){}}; return {connect:(n)=>n,start(){},stop(){},frequency:p,gain:p} } createGain(){ return this.createOscillator() } resume(){ return Promise.resolve() } }; if (window.speechSynthesis) { speechSynthesis.speak = () => {}; } document.querySelectorAll('video').forEach(v => v.muted = true);`
+I test automatici sono già muti (vedi `mute` in `tests/helpers.js`).
+
 Avvia l'app con `preview_start` (configurazione `tabata`, oppure `python3 -m http.server 8080 --directory app`)
 e usala come la userebbe una persona. Prova almeno in **iPad verticale (820×1180)** e **iPad orizzontale (1180×820)**
 con `resize_window`, e torna a `desktop` alla fine. Ricorda che l'app tiene i dati nel localStorage: ripulisci

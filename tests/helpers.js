@@ -6,7 +6,35 @@ const { expect } = require('@playwright/test');
  * Apre l'app con una memoria (localStorage) preimpostata.
  * Con `clock: true` il tempo è simulato: avanza solo con advance(), così un AMRAP di 10 minuti dura millisecondi.
  */
+/**
+ * Audio muto: i test non devono fare rumore sul Mac (bip e voce). Sostituisce AudioContext e la sintesi vocale
+ * con versioni finte che non suonano ma contano le richieste (window.__qa.beeps, window.__qa.spoken).
+ */
+async function mute(page) {
+  await page.addInitScript(() => {
+    window.__qa = { beeps: 0, spoken: [] };
+    const param = () => ({ value: 0, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+    const node = () => ({ connect: (n) => n, disconnect() {}, start() {}, stop() {}, type: '', frequency: param(), gain: param() });
+    class SilentAudioContext {
+      constructor() { this.state = 'running'; this.currentTime = 0; this.destination = node(); }
+      createOscillator() { window.__qa.beeps++; return node(); }
+      createGain() { return node(); }
+      resume() { return Promise.resolve(); }
+      close() { return Promise.resolve(); }
+    }
+    window.AudioContext = SilentAudioContext;
+    window.webkitAudioContext = SilentAudioContext;
+    if ('speechSynthesis' in window) {
+      speechSynthesis.speak = (u) => { window.__qa.spoken.push(u.text); };
+      speechSynthesis.cancel = () => {};
+    }
+    // il video anti-oscuramento ha una traccia audio muta, ma per sicurezza niente audio dai video
+    Object.defineProperty(HTMLMediaElement.prototype, 'muted', { configurable: true, get: () => true, set() {} });
+  });
+}
+
 async function openApp(page, { storage = {}, clock = true } = {}) {
+  await mute(page);
   // QA_FONT="Verdana" npx playwright test → simula un carattere più largo (come DejaVu Sans su Linux o
   // i font di certi Android), per vedere se l'impaginazione regge anche senza i font Apple
   if (process.env.QA_FONT) {
@@ -50,6 +78,7 @@ async function runState(page) {
       remaining: t('#run-remaining'),
       next: t('#run-next'),
       counter: t('#cnt-value'),
+      session: t('#run-session'),
     };
   });
 }
@@ -97,7 +126,7 @@ async function assertUsable(page, scope, where = '') {
       return true;
     };
     const root = document.querySelector(scopeSel);
-    const items = [...root.querySelectorAll('button, select, input, .value, .label, .run-phase, .run-seconds, .run-next, .run-info > span, #sw-main, .mode-desc, .total')]
+    const items = [...root.querySelectorAll('button, select, input, .value, .label, .run-phase, .run-seconds, .run-next, .run-info > span, .run-time-label, .run-time-value, #sw-main, .mode-desc, .total')]
       .filter(isShown)
       .filter((el) => (el.textContent || el.value || el.tagName === 'INPUT' || el.querySelector('svg')));
     // nessun contenitore deve scorrere di lato: un contenuto più largo vuol dire pulsanti tagliati o nascosti
@@ -145,6 +174,16 @@ async function assertUsable(page, scope, where = '') {
         out.push(`${name}: testo tagliato`);
       }
     }
+    // schermata di allenamento: i blocchi in verticale non devono toccarsi (almeno 4 px di aria) (barra in alto, nome, "Poi:", barra di avanzamento)
+    if (scopeSel === '#tabata-run') {
+      const box = (sel) => { const e = document.querySelector(sel); return e && isShown(e) && e.textContent.trim() !== '' ? e.getBoundingClientRect() : null; };
+      const top = box('.run-top');
+      const phase = box('#run-phase');
+      const next = box('#run-next');
+      const progress = document.querySelector('.progress').getBoundingClientRect();
+      if (top && phase && phase.top - top.bottom < 4) out.push(`il nome della fase tocca la barra in alto (distanza ${Math.round(phase.top - top.bottom)}px)`);
+      if (next && progress.top - next.bottom < 4) out.push(`"${document.querySelector('#run-next').textContent.trim()}" tocca la barra di avanzamento (distanza ${Math.round(progress.top - next.bottom)}px)`);
+    }
     return [...new Set(out)];
   }, scope);
   expect(problems, `Problemi grafici in ${scope}${where ? ` a ${where}` : ''}:\n${problems.join('\n')}`).toEqual([]);
@@ -157,4 +196,4 @@ async function shot(page, testInfo, name) {
   await page.screenshot({ path: path.join(dir, `${name}.png`), animations: 'disabled' });
 }
 
-module.exports = { openApp, advance, workoutStorage, runState, collectPhases, assertUsable, shot };
+module.exports = { mute, openApp, advance, workoutStorage, runState, collectPhases, assertUsable, shot };

@@ -13,6 +13,8 @@ Gratis, senza pubblicità, senza account, funziona offline e tiene lo schermo ac
   - **AMRAP**: conto alla rovescia unico, con il pulsante "+1 Round" per contare i giri.
   - **For Time**: il tempo sale, con un limite facoltativo e il pulsante "Fatto".
   - **Circuito**: esercizi con nome e durata propria, ripetuti per più round (anche piramidi).
+- **Cronometro di sessione** sempre visibile durante l'allenamento: parte con l'allenamento, oppure continua
+  quello avviato prima (per esempio durante il riscaldamento).
 - Schermo colorato per fase, bip negli ultimi 3 secondi, voce in italiano facoltativa.
 - Preset predefiniti per ogni modalità, più i tuoi preset salvati sul dispositivo.
 - Interruttore **Schermo sempre acceso**: blocca lo standby finché l'app è aperta.

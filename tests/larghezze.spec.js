@@ -71,3 +71,21 @@ test('la barra in alto resta su una riga da 568 px in su', async ({ page }) => {
     expect(h, `barra in alto a ${w}px`).toBeLessThan(90);
   }
 });
+
+test('telefono piccolo in orizzontale: circuito lungo e sessione oltre l\'ora', async ({ page }) => {
+  const exercises = Array.from({ length: 12 }, (_, i) => ({ name: i ? `Esercizio ${i + 1}` : 'Mountain climber esplosivo con salto', dur: 45 }));
+  await openApp(page, {
+    storage: {
+      ...workoutStorage('circuit', { prep: 0, rest: 15, rounds: 10, roundRest: 60, exercises }),
+      'sw.state': { acc: 65 * 60_000, startedAt: null, laps: [] },
+    },
+  });
+  await page.click('.tab[data-view=stopwatch]');
+  await page.click('#sw-toggle'); // cronometro già a 1:05:00, in corsa
+  await page.click('.tab[data-view=tabata]');
+  await page.click('#tb-start');
+  for (const [width, height] of [[568, 320], [667, 375], [762, 700], [820, 1180]]) {
+    await page.setViewportSize({ width, height });
+    await assertUsable(page, '#tabata-run', `${width}×${height}`);
+  }
+});

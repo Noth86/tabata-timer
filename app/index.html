@@ -85,7 +85,13 @@
   <!-- ALLENAMENTO: in esecuzione (sovrapposto a tutto lo schermo) -->
   <section id="tabata-run" class="run hidden" data-phase="prep">
     <div class="run-top">
-      <button id="tb-close" class="icon-btn" title="Chiudi">✕</button>
+      <div class="run-left">
+        <button id="tb-close" class="icon-btn" title="Chiudi">✕</button>
+        <div class="run-time" title="Tempo dall'inizio della sessione (è il cronometro)">
+          <span class="run-time-label">Sessione</span>
+          <span id="run-session" class="run-time-value">0:00</span>
+        </div>
+      </div>
       <div class="run-info">
         <span id="run-round"></span>
         <span id="run-counter" class="run-counter hidden">
@@ -93,7 +99,12 @@
           <span id="cnt-value">0 round</span>
         </span>
       </div>
-      <span id="run-remaining" class="run-remaining">0:00</span>
+      <div class="run-right">
+        <div id="run-remaining-box" class="run-time">
+          <span id="run-remaining-label" class="run-time-label">Rimane</span>
+          <span id="run-remaining" class="run-time-value">0:00</span>
+        </div>
+      </div>
     </div>
     <div class="run-center" id="run-center">
       <div id="run-phase" class="run-phase">PREPARATI</div>

@@ -312,8 +312,17 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 .run-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 24px; font-weight: 700; }
 .run-top .icon-btn { background: rgba(0,0,0,.18); color: inherit; }
-.run-info { display: flex; gap: 24px; }
-.run-remaining { font-variant-numeric: tabular-nums; min-width: 48px; text-align: right; }
+/* barra in alto: a sinistra ✕ e tempo di sessione, al centro round, a destra tempo rimanente.
+   Sinistra e destra crescono allo stesso modo, così le informazioni del round restano al centro. */
+.run-top { flex-wrap: wrap; row-gap: 6px; }
+.run-left { flex: 1 1 0; min-width: max-content; display: flex; align-items: center; gap: 14px; }
+.run-right { flex: 1 1 0; min-width: max-content; display: flex; justify-content: flex-end; }
+.run-info { display: flex; gap: 24px; justify-content: center; text-align: center; }
+/* tempi in alto (sessione e rimanente): grandi, leggibili da lontano */
+.run-time { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
+.run-right .run-time { align-items: flex-end; }
+.run-time-label { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
+.run-time-value { font-size: clamp(30px, min(5.5vw, 6vh), 56px); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .run-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; }
 .run-phase { font-size: min(9vw, 11vh); font-weight: 800; letter-spacing: .04em; }
@@ -470,3 +479,31 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 
 /* i pulsanti dell'allenamento si adattano alla larghezza: "Ricomincia" non deve mai essere tagliato */
 .run-controls .btn { font-size: clamp(14px, 4.4vw, 24px); padding-left: 4px; padding-right: 4px; }
+
+/* schermi stretti: le informazioni del round vanno sulla seconda riga, sotto i due tempi */
+@media (max-width: 760px) {
+  .run-info { order: 3; flex-basis: 100%; }
+}
+@media (max-height: 440px) {
+  .run-time-value { font-size: 22px; }
+  /* schermi bassissimi (telefoni in orizzontale): le etichette lasciano il posto, i tempi si riconoscono dalla posizione */
+  .run-time-label { display: none; }
+  .run-top { font-size: 15px; gap: 8px; }
+  .run-left { gap: 8px; }
+  /* telefoni in orizzontale: poca altezza ma tanta larghezza, quindi tutto su una riga */
+  .run-info { order: 0; flex-basis: auto; }
+}
+
+/* in orizzontale l'altezza è il limite: numeri e nomi si dimensionano sull'altezza, così con un nome
+   di esercizio su due righe niente tocca la barra in alto o quella di avanzamento */
+@media (orientation: landscape) {
+  .run-seconds { font-size: min(40vw, 44vh); }
+  .run-seconds.long { font-size: min(28vw, 38vh); }
+  .run-phase { font-size: min(9vw, 9vh); }
+  .run-phase.small { font-size: min(6vw, 6.5vh); }
+}
+@media (orientation: landscape) and (max-height: 440px) {
+  .run-seconds { font-size: min(40vw, 34vh); }
+  .run-seconds.long { font-size: min(26vw, 30vh); }
+  .run-phase, .run-phase.small { font-size: 7vh; }
+}

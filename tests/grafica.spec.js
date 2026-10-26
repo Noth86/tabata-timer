@@ -54,8 +54,9 @@ for (const [mode, config] of Object.entries(MODES)) {
     await assertUsable(page, '#tabata-run');
     await shot(page, testInfo, `in-corso-${mode}`);
     if (mode === 'circuit') {
-      await advance(page, 40_000); // riposo, poi l'esercizio con il nome lungo
-      await advance(page, 20_000);
+      // riposo, poi l'esercizio con il nome lungo (salto di tempo: simularlo un passo alla volta è lento)
+      await page.clock.fastForward(60_000);
+      await advance(page, 100);
       await assertUsable(page, '#tabata-run');
       await shot(page, testInfo, 'in-corso-circuit-nome-lungo');
     }

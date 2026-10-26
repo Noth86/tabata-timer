@@ -39,15 +39,27 @@ test.describe('Tabata', () => {
     expect(await collectPhases(page, 60)).toEqual(['warmup:RISCALDAMENTO', 'work:LAVORO', 'rest:RIPOSO', 'work:LAVORO', 'done:FINITO!']);
   });
 
+  test('bip e voce vengono richiesti (in silenzio durante i test)', async ({ page }) => {
+    await openApp(page, { storage: { ...workoutStorage('tabata', cfg), 'tb.opts': { sound: true, voice: true } } });
+    await start(page);
+    await advance(page, 3500);
+    const qa = await page.evaluate(() => window.__qa);
+    expect(qa.beeps).toBeGreaterThan(0);
+    expect(qa.spoken).toContain('Preparati');
+  });
+
   test('pausa ferma il tempo, riprendi lo fa ripartire', async ({ page }) => {
     await openApp(page, { storage: workoutStorage('tabata', cfg) });
     await start(page);
     await advance(page, 4500);
     await page.click('#tb-toggle');
     await expect(page.locator('#tb-toggle')).toHaveText('Riprendi');
-    const before = await runState(page);
+    const { session: sessionBefore, ...before } = await runState(page);
     await advance(page, 10000);
-    expect(await runState(page)).toEqual(before);
+    const { session: sessionAfter, ...after } = await runState(page);
+    expect(after).toEqual(before);
+    // il cronometro di sessione invece non si ferma con la pausa dell'allenamento
+    expect(sessionAfter).not.toBe(sessionBefore);
     await page.click('#tb-toggle');
     await advance(page, 1000);
     expect((await runState(page)).time).not.toBe(before.time);
@@ -93,6 +105,158 @@ test.describe('Tabata', () => {
     await page.click('#tb-close');
     await expect(page.locator('#tabata-run')).toBeHidden();
     await expect(page.locator('#tb-start')).toBeVisible();
+  });
+});
+
+test.describe('Cronometro di sessione nell\'allenamento', () => {
+  const cfg = { prep: 0, interval: 60, rounds: 3 };
+
+  test('avviando solo l\'allenamento parte anche il cronometro, da zero', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 500);
+    expect((await runState(page)).session).toBe('0:00');
+    await advance(page, 65000);
+    expect((await runState(page)).session).toBe('1:05');
+    // finito o chiuso l'allenamento, il cronometro continua e si ritrova nella sua scheda
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-close');
+    await page.click('.tab[data-view=stopwatch]');
+    await expect(page.locator('#sw-toggle')).toHaveText('Pausa');
+    await expect(page.locator('#sw-main')).toHaveText('01:05');
+  });
+
+  test('se il cronometro era già avviato, l\'allenamento lo fa continuare da dove era', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await page.click('.tab[data-view=stopwatch]');
+    await page.click('#sw-toggle'); // riscaldamento
+    await page.clock.fastForward(5 * 60_000 + 500);
+    await page.click('.tab[data-view=tabata]');
+    await start(page);
+    expect((await runState(page)).session).toBe('5:00');
+    expect((await runState(page)).time).toBe('1:00'); // il countdown parte da capo
+    await advance(page, 30_000);
+    expect((await runState(page)).session).toBe('5:30');
+  });
+
+  test('se il cronometro era in pausa, il nuovo allenamento lo azzera', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await page.click('.tab[data-view=stopwatch]');
+    await page.click('#sw-toggle');
+    await page.clock.fastForward(2 * 60_000 + 500);
+    await page.click('#sw-toggle'); // pausa a 2:00
+    await page.clock.fastForward(60_000);
+    await page.click('.tab[data-view=tabata]');
+    await start(page);
+    expect((await runState(page)).session).toBe('0:00');
+  });
+
+  test('più allenamenti nella stessa lezione continuano la stessa sessione', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 40_500);
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-close');
+    await page.clock.fastForward(5 * 60_000); // pausa tra un blocco e l'altro
+    await start(page);
+    expect((await runState(page)).session).toBe('5:40');
+  });
+
+  test('il riscaldamento a mano continua anche negli allenamenti successivi, giri compresi', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await page.click('.tab[data-view=stopwatch]');
+    await page.click('#sw-toggle');
+    await page.clock.fastForward(60_000);
+    await page.click('#sw-lap');
+    await page.clock.fastForward(2 * 60_000 + 500);
+    await page.click('.tab[data-view=tabata]');
+    await start(page);
+    expect((await runState(page)).session).toBe('3:00');
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-close');
+    await start(page);
+    expect((await runState(page)).session).toBe('3:00');
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-close');
+    await page.click('.tab[data-view=stopwatch]');
+    await expect(page.locator('#sw-laps li')).toHaveCount(1);
+  });
+
+  test('lezione nuova: 30 minuti dopo la fine dell\'ultimo allenamento si riparte da zero', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', { prep: 0, interval: 10, rounds: 1 }) });
+    await start(page);
+    await advance(page, 10_500); // finito; il cronometro resta acceso
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-close');
+    await page.clock.fastForward(31 * 60_000);
+    await start(page);
+    expect((await runState(page)).session).toBe('0:00');
+  });
+
+  // l'orologio dei test parte il 5 gennaio alle 9:00 (vedi openApp)
+  const ieri = Date.parse('2026-01-04T13:00:00'); // 20 ore prima
+
+  test('pagina chiusa a metà allenamento il giorno prima: si riparte da zero', async ({ page }) => {
+    await openApp(page, {
+      storage: { ...workoutStorage('emom', cfg), 'sw.state': { acc: 0, startedAt: ieri, laps: [], workoutEndedAt: null, lastSeenAt: ieri + 60_000 } },
+    });
+    await start(page);
+    expect((await runState(page)).session).toBe('0:00');
+  });
+
+  test('cronometro della versione precedente acceso da ieri: si riparte da zero', async ({ page }) => {
+    await openApp(page, { storage: { ...workoutStorage('emom', cfg), 'sw.state': { acc: 0, startedAt: ieri, laps: [] } } });
+    await start(page);
+    expect((await runState(page)).session).toBe('0:00');
+  });
+
+  test('sessione oltre le 6 ore (cronometro dimenticato acceso): si riparte da zero', async ({ page }) => {
+    const setteOreFa = Date.parse('2026-01-05T02:00:00');
+    await openApp(page, {
+      storage: { ...workoutStorage('emom', cfg), 'sw.state': { acc: 0, startedAt: setteOreFa, laps: [], lastSeenAt: Date.parse('2026-01-05T08:59:00') } },
+    });
+    await start(page);
+    expect((await runState(page)).session).toBe('0:00');
+  });
+
+  test('cronometro ripreso dopo una lunga pausa: l\'allenamento subito dopo lo continua', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await page.click('.tab[data-view=stopwatch]');
+    await page.click('#sw-toggle');
+    await page.clock.fastForward(10 * 60_000 + 500);
+    await page.click('#sw-toggle'); // pausa a 10:00
+    await page.clock.fastForward(40 * 60_000);
+    await page.click('#sw-toggle'); // riprende
+    await page.click('.tab[data-view=tabata]');
+    await start(page);
+    expect((await runState(page)).session).toBe('10:00');
+  });
+
+  test('se l\'iPad ricarica la pagina a metà lezione la sessione non si perde', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 20_500);
+    await page.reload();
+    await page.click('#tb-start');
+    expect((await runState(page)).session).toBe('0:20');
+  });
+
+  test('"Ancora" a fine allenamento non azzera la sessione', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', { prep: 0, interval: 10, rounds: 1 }) });
+    await start(page);
+    await advance(page, 10_500);
+    expect((await runState(page)).phase).toBe('done');
+    await page.click('#tb-toggle'); // Ancora
+    expect((await runState(page)).session).toBe('0:10');
+  });
+
+  test('Ricomincia non azzera il cronometro di sessione', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 40_500);
+    page.once('dialog', (d) => d.accept());
+    await page.click('#tb-restart');
+    expect((await runState(page)).session).toBe('0:40');
   });
 });
 
@@ -142,7 +306,8 @@ test('For Time con limite: si ferma da solo', async ({ page }) => {
   await openApp(page, { storage: workoutStorage('fortime', { prep: 5, cap: 30 }) });
   await start(page);
   await advance(page, 500);
-  expect((await runState(page)).remaining).toBe('Limite 0:30');
+  expect((await runState(page)).remaining).toBe('0:30');
+  await expect(page.locator('#run-remaining-label')).toHaveText('Limite');
   await advance(page, 36000);
   expect(await runState(page)).toMatchObject({ phase: 'done', time: '0:30' });
 });

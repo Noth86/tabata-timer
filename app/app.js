@@ -306,9 +306,17 @@ const stopwatch = {
   toggle() {
     const s = this.state;
     if (this.running()) { s.acc += Date.now() - s.startedAt; s.startedAt = null; }
-    else s.startedAt = Date.now();
+    else { s.startedAt = Date.now(); s.lastSeenAt = s.startedAt; } // riparte: è in uso adesso
     this.save();
     this.renderControls();
+  },
+
+  // nuova sessione: azzera e riparte (giri compresi)
+  startNew() {
+    this.state = { acc: 0, startedAt: null, laps: [] };
+    this.toggle();
+    this.renderLaps();
+    this.renderTime();
   },
 
   reset() {
@@ -540,6 +548,10 @@ function loadPresets() {
   if (saved) return saved;
   return store.get('tb.presets', []).map((p) => ({ mode: 'tabata', warmup: 0, cooldown: 0, ...p }));
 }
+
+// pausa oltre la quale il prossimo allenamento inizia una lezione nuova, e durata massima di una lezione
+const SESSION_GAP_MS = 30 * 60 * 1000;
+const SESSION_MAX_MS = 6 * 60 * 60 * 1000;
 
 const workout = {
   modeId: MODES[store.get('wo.mode', 'tabata')] ? store.get('wo.mode', 'tabata') : 'tabata',
@@ -792,8 +804,26 @@ const workout = {
   // iniziato e non finito, anche se in pausa (è in pausa che si tocca più facilmente per sbaglio)
   inProgress() { return !this.finished && (this.running() || this.elapsed() > 0); },
 
+  // Il cronometro di sessione misura la lezione (regole decise con l'utente):
+  // - se sta andando (riscaldamento, spiegazione, allenamenti precedenti) il nuovo allenamento lo continua;
+  // - se è fermo o azzerato riparte da zero, insieme all'allenamento;
+  // - lezione nuova, riparte da zero: se l'ultimo allenamento è finito da più di 30 minuti, se l'app non è stata
+  //   usata per più di 30 minuti (pagina chiusa dall'iPad, batteria scarica...) o se la sessione supera le 6 ore.
+  sessionIsStale() {
+    const st = stopwatch.state;
+    const now = Date.now();
+    if (stopwatch.elapsed() > SESSION_MAX_MS) return true;
+    if (st.workoutEndedAt) return now - st.workoutEndedAt > SESSION_GAP_MS;
+    const lastSeen = st.lastSeenAt || st.startedAt || now;
+    return now - lastSeen > SESSION_GAP_MS;
+  },
+
   start() {
     sound.unlock();
+    if (!stopwatch.running() || this.sessionIsStale()) stopwatch.startNew();
+    stopwatch.state.workoutEndedAt = null; // allenamento in corso
+    stopwatch.save();
+    this.renderSession();
     this.runMode = this.mode;
     this.phases = buildPhases(this.modeId, this.config);
     this.starts = [];
@@ -802,7 +832,8 @@ const workout = {
     this.total = t;
     this.prepDur = this.phases[0].type === 'prep' ? this.phases[0].dur : 0;
     const main = this.phases[this.phases.length - 1];
-    this.capLabel = main.countUp && !main.uncapped ? `Limite ${fmtClock(main.dur)}` : '';
+    this.capLabel = main.countUp && !main.uncapped ? fmtClock(main.dur) : '';
+    $('#run-remaining-label').textContent = main.countUp ? 'Limite' : 'Rimane';
     // con una sola fase principale (AMRAP) il tempo totale in alto sarebbe un doppione
     this.showTotal = this.phases.filter((ph) => ph.type !== 'prep').length > 1;
     this.acc = 0;
@@ -863,6 +894,7 @@ const workout = {
 
   close() {
     if (this.inProgress() && !confirm('Interrompere l\'allenamento?')) return;
+    this.markEnded();
     this.startedAt = null;
     $('#tabata-run').classList.add('hidden');
     if ('speechSynthesis' in window) speechSynthesis.cancel();
@@ -875,8 +907,16 @@ const workout = {
     return idx;
   },
 
+  // segna quando è finito l'ultimo allenamento: serve a capire quando inizia una lezione nuova
+  markEnded() {
+    if (stopwatch.state.workoutEndedAt) return;
+    stopwatch.state.workoutEndedAt = Date.now();
+    stopwatch.save();
+  },
+
   finish() {
     if (this.finished) return;
+    this.markEnded();
     const ms = Math.min(this.elapsed(), this.total * 1000);
     this.finished = true;
     this.startedAt = null;
@@ -891,7 +931,7 @@ const workout = {
     $('#run-next').textContent = this.runMode.counter
       ? `${this.count} round · ${fmtClock(Math.max(0, workTime))}`
       : `Tempo totale ${fmtClock(this.total)}`;
-    $('#run-remaining').textContent = '';
+    this.renderRemaining('');
     $('#run-round').textContent = '';
     $('#run-progress').style.width = '100%';
     $('#tb-toggle').textContent = 'Ancora';
@@ -930,8 +970,8 @@ const workout = {
     const secEl = $('#run-seconds');
     secEl.textContent = long ? fmtClock(shown) : String(shown);
     secEl.classList.toggle('long', long);
-    $('#run-remaining').textContent = this.runMode.countUp ? this.capLabel
-      : this.showTotal ? fmtClock(Math.ceil(this.total - ms / 1000)) : '';
+    this.renderRemaining(this.runMode.countUp ? this.capLabel
+      : this.showTotal ? fmtClock(Math.ceil(this.total - ms / 1000)) : '');
     $('#run-progress').style.width = ph.uncapped ? '0%' : `${(phaseMs / (ph.dur * 1000)) * 100}%`;
   },
 
@@ -949,6 +989,16 @@ const workout = {
     $('#run-next').textContent = nextText;
     $('#run-next').classList.toggle('counter-big', !!this.runMode.counter && ph.type === 'work');
     if (this.runMode.counter && ph.type === 'work') this.renderCount();
+  },
+
+  renderSession() {
+    $('#run-session').textContent = fmtClock(Math.floor(stopwatch.elapsed() / 1000));
+  },
+
+  // tempo rimanente (o limite del For Time); se non c'è il riquadro sparisce ma tiene il posto
+  renderRemaining(text) {
+    $('#run-remaining').textContent = text;
+    $('#run-remaining-box').style.visibility = text ? 'visible' : 'hidden';
   },
 
   renderToggle() {
@@ -1022,9 +1072,19 @@ showView(store.get('ui.view', 'stopwatch'));
 wake.render();
 wake.acquire();
 
+// "segno di vita" della sessione: mentre il cronometro va e l'app è aperta, ogni 15 s si annota che è in uso
+// (se l'iPad chiude la pagina, al ritorno si capisce da quanto tempo non era usata)
+setInterval(() => {
+  if (!stopwatch.running() || document.visibilityState !== 'visible') return;
+  stopwatch.state.lastSeenAt = Date.now();
+  stopwatch.save();
+}, 15000);
+
 setInterval(() => {
   if (stopwatch.running()) stopwatch.renderTime();
   if (workout.running()) workout.tick();
+  // anche con l'allenamento in pausa o finito il tempo di sessione continua a scorrere
+  if (!$('#tabata-run').classList.contains('hidden')) workout.renderSession();
 }, 33);
 
 /* ================= Aggiornamenti ================= */
@@ -1036,7 +1096,14 @@ const updates = {
   // non ricarichiamo mai durante un allenamento Tabata (il cronometro invece sopravvive alla ricarica)
   // mai durante un allenamento né con il cronometro in corso: dopo una ricarica il video anti-oscuramento
   // riparte solo con un tocco, e lo schermo potrebbe oscurarsi mentre ti alleni
-  safeToReload() { return $('#tabata-run').classList.contains('hidden') && !stopwatch.running(); },
+  // Con il cronometro in corsa si ricarica solo nei primi secondi dopo l'apertura dell'app (o il ritorno in primo piano):
+  // in quel momento si sta per toccare lo schermo, e il video riparte. Così un cronometro dimenticato acceso
+  // non blocca gli aggiornamenti per giorni.
+  shownAt: Date.now(),
+  safeToReload() {
+    if (!$('#tabata-run').classList.contains('hidden')) return false;
+    return !stopwatch.running() || Date.now() - this.shownAt < 15000;
+  },
 
   async check() {
     if (!this.reg) return;
@@ -1071,7 +1138,9 @@ const updates = {
       .catch(() => {});
 
     // l'app installata su iPad resta "viva" a lungo: controlliamo quando torna in primo piano e ogni 30 minuti
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.check(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') { this.shownAt = Date.now(); this.check(); }
+    });
     setInterval(() => this.check(), 30 * 60 * 1000);
     setInterval(() => { if (this.pendingReload && this.safeToReload()) location.reload(); }, 1000);
   },
