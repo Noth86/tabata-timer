@@ -480,8 +480,9 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 /* i pulsanti dell'allenamento si adattano alla larghezza: "Ricomincia" non deve mai essere tagliato */
 .run-controls .btn { font-size: clamp(14px, 4.4vw, 24px); padding-left: 4px; padding-right: 4px; }
 
-/* schermi stretti: le informazioni del round vanno sulla seconda riga, sotto i due tempi */
-@media (max-width: 760px) {
+/* schermi stretti: le informazioni del round vanno sulla seconda riga, sotto i due tempi
+   (in modo ordinato, invece di lasciare che la barra vada a capo da sola dove capita) */
+@media (max-width: 900px) {
   .run-info { order: 3; flex-basis: 100%; }
 }
 @media (max-height: 440px) {
@@ -497,7 +498,7 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 /* in orizzontale l'altezza è il limite: numeri e nomi si dimensionano sull'altezza, così con un nome
    di esercizio su due righe niente tocca la barra in alto o quella di avanzamento */
 @media (orientation: landscape) {
-  .run-seconds { font-size: min(40vw, 44vh); }
+  .run-seconds { font-size: min(40vw, 40vh); }
   .run-seconds.long { font-size: min(28vw, 38vh); }
   .run-phase { font-size: min(9vw, 9vh); }
   .run-phase.small { font-size: min(6vw, 6.5vh); }
@@ -505,5 +506,5 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 @media (orientation: landscape) and (max-height: 440px) {
   .run-seconds { font-size: min(40vw, 34vh); }
   .run-seconds.long { font-size: min(26vw, 30vh); }
-  .run-phase, .run-phase.small { font-size: 7vh; }
+  .run-phase, .run-phase.small { font-size: 6vh; }
 }
