@@ -479,23 +479,39 @@ test.describe('Schermo sempre acceso', () => {
     };
   };
 
-  test('si attiva da solo, si spegne e si riaccende con l\'interruttore', async ({ page }) => {
+  // l'interruttore mostra solo lo stato reale (aria-checked e classe "enabled" = schermo davvero tenuto acceso)
+  test('iPad: spento all\'apertura, si accende al primo tocco sull\'app, si spegne e riaccende con l\'interruttore', async ({ page }) => {
     await page.addInitScript(mockWakeLock);
     await openApp(page);
     const sw = page.locator('#wake-indicator');
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(sw).not.toHaveClass(/enabled/);
+    await page.click('#sw-main'); // primo tocco: parte il video
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
     await expect(sw).toHaveClass(/enabled/);
-    await page.click('#sw-main'); // su iPad il video parte solo dopo un tocco
-    await expect(sw).not.toHaveClass(/pending/);
     await sw.click();
     await expect(sw).toHaveAttribute('aria-checked', 'false');
     expect(await page.evaluate(() => window.__wake.releases)).toBe(1);
-    // un tocco altrove non deve riaccenderlo
+    // spento da lei: un tocco altrove non lo riaccende
     await page.click('#sw-main');
     await expect(sw).toHaveAttribute('aria-checked', 'false');
     await sw.click();
     await expect(sw).toHaveAttribute('aria-checked', 'true');
+    // dopo una ricarica è spento finché non si tocca l'app (la preferenza "acceso" resta)
     await page.reload();
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await page.click('#sw-main');
     await expect(sw).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('iPad: toccando l\'interruttore spento all\'apertura si accende (non si spegne)', async ({ page }) => {
+    await page.addInitScript(mockWakeLock);
+    await openApp(page);
+    const sw = page.locator('#wake-indicator');
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
+    expect(await page.evaluate(() => window.__video.plays)).toBe(1);
   });
 
   test('iPad: il video anti-oscuramento parte al primo tocco e si ferma con l\'interruttore', async ({ page }) => {
@@ -503,18 +519,29 @@ test.describe('Schermo sempre acceso', () => {
     await openApp(page);
     const sw = page.locator('#wake-indicator');
     await expect(page.locator('video.nosleep')).toHaveCount(1);
-    // prima di un tocco l'iPad non fa partire il video: interruttore arancione
-    await expect(sw).toHaveClass(/pending/);
+    expect(await page.evaluate(() => window.__video.plays)).toBe(0);
     await page.click('#sw-main');
-    await expect(sw).not.toHaveClass(/pending/);
     expect(await page.evaluate(() => window.__video.plays)).toBe(1);
     await sw.click();
     expect(await page.evaluate(() => window.__video.pauses)).toBe(1);
     await page.click('#sw-main'); // spento: un tocco non lo fa ripartire
     expect(await page.evaluate(() => window.__video.plays)).toBe(1);
     await sw.click();
-    await expect(sw).not.toHaveClass(/pending/);
+    await expect(sw).toHaveAttribute('aria-checked', 'true');
     expect(await page.evaluate(() => window.__video.plays)).toBe(2);
+  });
+
+  test('se l\'iPad rifiuta il video: niente falso "attivo", e il tocco successivo lo spegne', async ({ page }) => {
+    await page.addInitScript(mockWakeLock);
+    await page.addInitScript(() => { HTMLMediaElement.prototype.play = () => Promise.reject(new Error('rifiutato')); });
+    await openApp(page);
+    const sw = page.locator('#wake-indicator');
+    await sw.click();
+    await expect(sw).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('#toast')).toHaveText(/Non riesco a tenere acceso/);
+    await sw.click(); // spegne davvero la preferenza
+    await expect(page.locator('#toast')).toHaveText(/disattivato/);
+    expect(await page.evaluate(() => localStorage.getItem('wake.enabled'))).toBe('false');
   });
 
   test('Mac: niente video, basta il blocco dello standby', async ({ browser }) => {
@@ -527,7 +554,8 @@ test.describe('Schermo sempre acceso', () => {
     await page.addInitScript(mockWakeLock);
     await openApp(page);
     await expect(page.locator('video.nosleep')).toHaveCount(0);
-    await expect(page.locator('#wake-indicator')).not.toHaveClass(/pending/);
+    // sul Mac il blocco dello standby arriva subito, senza tocchi: acceso da solo
+    await expect(page.locator('#wake-indicator')).toHaveAttribute('aria-checked', 'true');
     await context.close();
   });
 

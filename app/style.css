@@ -130,8 +130,9 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 #wake-indicator.enabled { color: var(--text); }
 #wake-indicator.enabled .switch-ui { background: var(--accent); }
 #wake-indicator.enabled .switch-ui::after { transform: translateX(16px); }
-/* attivato ma l'iPad non l'ha ancora concesso (serve un tocco) */
-#wake-indicator.enabled.pending .switch-ui { background: #f39c12; }
+/* segno ✓ nella levetta quando è acceso: lo stato si capisce anche senza distinguere i colori */
+.switch-ui::after { display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 900; line-height: 1; }
+#wake-indicator.enabled .switch-ui::after { content: "✓"; color: #1e8449; }
 #wake-indicator.unsupported { color: var(--rest); }
 #wake-indicator.unsupported .switch-ui { display: none; }
 

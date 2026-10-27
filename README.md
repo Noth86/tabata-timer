@@ -28,7 +28,7 @@ Specifiche complete in [PRODOTTO.md](PRODOTTO.md).
 
 Su Mac con Safari: **File → Aggiungi al Dock**. Su Chrome ed Edge il pulsante **Installa app** apre direttamente l'installazione.
 
-Se lo standby non si blocca (interruttore arancione o rosso), la soluzione di riserva è:
+Se lo standby non si blocca (interruttore che resta spento anche dopo un tocco), la soluzione di riserva è:
 Impostazioni → Schermo e luminosità → Blocco automatico → Mai.
 
 ## Aggiornamenti

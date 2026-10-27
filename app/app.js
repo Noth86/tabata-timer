@@ -92,9 +92,10 @@ const wake = {
   },
 
   // va chiamata durante un tocco: iPad fa partire un video con audio solo dopo un'interazione
+  // restituisce una promessa che si risolve quando il video è partito (o non è potuto partire)
   playVideo() {
-    if (!this.video || !this.enabled || !this.video.paused || document.visibilityState !== 'visible') return;
-    this.video.play().catch(() => {});
+    if (!this.video || !this.enabled || !this.video.paused || document.visibilityState !== 'visible') return Promise.resolve();
+    return this.video.play().then(() => { this.videoPlaying = true; this.render(); }).catch(() => {});
   },
 
   async acquire() {
@@ -108,11 +109,13 @@ const wake = {
     this.render();
   },
 
+  // L'interruttore mostra solo lo stato reale: acceso (verde, levetta a destra) solo quando lo schermo è davvero
+  // tenuto acceso. All'apertura su iPad è spento finché un tocco non fa partire il video; se la preferenza è
+  // "acceso" il primo tocco sull'app lo accende da solo, altrimenti resta spento.
   render() {
     const el = $('#wake-indicator');
-    const on = this.supported && this.enabled;
+    const on = this.supported && this.enabled && this.active;
     el.classList.toggle('enabled', on);
-    el.classList.toggle('pending', on && !this.active);
     el.classList.toggle('unsupported', !this.supported);
     el.setAttribute('aria-checked', String(on));
     $('#wake-label').textContent = this.supported ? 'Schermo sempre acceso' : 'Standby non bloccabile';
@@ -123,12 +126,21 @@ const wake = {
       toast('Questo browser non può impedire lo standby. Su iPad: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.', 7000);
       return;
     }
-    this.enabled = !this.enabled;
+    // acceso davvero → si spegne; spento (anche se solo "in attesa" del primo tocco) → si accende.
+    // Se l'ultimo tentativo di accenderlo è fallito, il tocco successivo lo spegne: così si può sempre spegnere.
+    const turnOff = this.enabled && (this.active || this.lastAttemptFailed);
+    this.enabled = !turnOff;
+    this.lastAttemptFailed = false;
     store.set('wake.enabled', this.enabled);
     if (this.enabled) {
-      this.playVideo();
-      await this.acquire();
-      toast('Schermo sempre acceso: attivo finché l\'app è aperta.');
+      await Promise.all([this.playVideo(), this.acquire()]);
+      this.render();
+      if (this.active) {
+        toast('Schermo sempre acceso: attivo finché l\'app è aperta.');
+      } else {
+        this.lastAttemptFailed = true;
+        toast('Non riesco a tenere acceso lo schermo adesso: riprovo al prossimo tocco. Tocca di nuovo l\'interruttore per spegnerlo.', 6000);
+      }
     } else {
       if (this.video) { this.pausingOnPurpose = true; this.video.pause(); this.pausingOnPurpose = false; }
       const lock = this.lock;
@@ -144,7 +156,7 @@ wake.setupVideo();
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   wake.acquire();
-  wake.playVideo(); // di solito iPad lo lascia ripartire; se no, l'interruttore resta arancione fino al prossimo tocco
+  wake.playVideo(); // di solito iPad lo lascia ripartire; se no, l'interruttore resta spento fino al prossimo tocco
 });
 // Alcuni browser concedono il blocco solo dopo un'interazione: riproviamo a ogni tocco finché non è attivo.
 // (il tocco sull'interruttore stesso è escluso, altrimenti lo riattiverebbe mentre lo si spegne)
