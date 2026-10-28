@@ -123,7 +123,7 @@ const wake = {
 
   async toggle() {
     if (!this.supported) {
-      toast('Questo browser non può impedire lo standby. Su iPad: Impostazioni → Schermo e luminosità → Blocco automatico → Mai.', 7000);
+      toast('Questo browser non può tenere acceso lo schermo. In alternativa disattiva il blocco automatico dello schermo nelle impostazioni del dispositivo.', 7000);
       return;
     }
     // acceso davvero → si spegne; spento (anche se solo "in attesa" del primo tocco) → si accende.
@@ -147,7 +147,7 @@ const wake = {
       this.lock = null;
       if (lock) await lock.release();
       this.render();
-      toast('Schermo sempre acceso: disattivato. L\'iPad andrà in standby come al solito.');
+      toast('Schermo sempre acceso: disattivato. Lo schermo si spegnerà come al solito.');
     }
   },
 };
