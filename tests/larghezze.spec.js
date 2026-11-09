@@ -89,3 +89,20 @@ test('telefono piccolo in orizzontale: circuito lungo e sessione oltre l\'ora', 
     await assertUsable(page, '#tabata-run', `${width}×${height}`);
   }
 });
+
+test('telefoni stretti: con sessione e rimanente lunghi la barra in alto resta compatta', async ({ page }) => {
+  await openApp(page, {
+    storage: { ...workoutStorage('emom', { prep: 0, interval: 60, rounds: 20 }), 'sw.state': { acc: 12 * 60_000 + 34_000, startedAt: null, laps: [] } },
+  });
+  await page.click('.tab[data-view=stopwatch]');
+  await page.click('#sw-toggle'); // sessione già a 12:34, in corsa
+  await page.click('.tab[data-view=tabata]');
+  await page.click('#tb-start');
+  for (const [width, height] of [[320, 568], [375, 667], [393, 852]]) {
+    await page.setViewportSize({ width, height });
+    await assertUsable(page, '#tabata-run', `${width}×${height}`);
+    // due righe al massimo (tempi + round): tre righe vorrebbe dire che "Rimane" è andato a capo
+    const h = await page.locator('.run-top').evaluate((el) => el.getBoundingClientRect().height);
+    expect(h, `barra in alto a ${width}px`).toBeLessThan(140);
+  }
+});

@@ -323,12 +323,15 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .run-time { display: flex; flex-direction: column; line-height: 1; gap: 3px; }
 .run-right .run-time { align-items: flex-end; }
 .run-time-label { font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; opacity: .8; }
-.run-time-value { font-size: clamp(30px, min(5.5vw, 6vh), 56px); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.run-time-value { font-size: clamp(32px, min(6vw, 6.5vh), 64px); font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* il tempo di sessione è il più grande della barra: è quello che la trainer guarda da lontano */
+.run-time-value.session { font-size: clamp(36px, min(12vw, 11vh), 120px); }
 
 .run-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 0; }
 .run-phase { font-size: min(9vw, 11vh); font-weight: 800; letter-spacing: .04em; }
 .run-seconds {
-  font-size: min(52vw, 52vh);
+  /* 46vh: sugli schermi quasi quadrati (iPad affiancato a un'altra app) lascia spazio alla barra in alto */
+  font-size: min(52vw, 46vh);
   font-weight: 800;
   line-height: .95;
   font-variant-numeric: tabular-nums;
@@ -457,6 +460,8 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 }
 /* solo i telefoni più stretti (iPhone SE prima generazione, 320 px): stepper sotto l'etichetta */
 @media (max-width: 360px) {
+  .run-time-value { font-size: 26px; }
+  .run-time-value.session { font-size: 32px; }
   .run-top { font-size: 16px; gap: 8px; }
   .run-info { gap: 8px; }
   .run-counter { gap: 6px; }
@@ -504,7 +509,13 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   .run-phase { font-size: min(9vw, 9vh); }
   .run-phase.small { font-size: min(6vw, 6.5vh); }
 }
+/* orizzontale basso (iPad mini, iPad affiancato): un po' meno spazio ai numeri, perché la barra in alto è alta */
+@media (orientation: landscape) and (max-height: 800px) {
+  .run-seconds { font-size: min(40vw, 34vh); }
+  .run-time-value.session { font-size: min(12vw, 9vh); }
+}
 @media (orientation: landscape) and (max-height: 440px) {
+  .run-time-value.session { font-size: 28px; }
   .run-seconds { font-size: min(40vw, 34vh); }
   .run-seconds.long { font-size: min(26vw, 30vh); }
   .run-phase, .run-phase.small { font-size: 6vh; }

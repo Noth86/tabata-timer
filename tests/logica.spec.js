@@ -260,6 +260,56 @@ test.describe('Cronometro di sessione nell\'allenamento', () => {
   });
 });
 
+test.describe('Fine allenamento: ritorno al cronometro', () => {
+  const cfg = { prep: 0, interval: 10, rounds: 1 };
+
+  test('dopo 8 secondi torna da solo alla scheda Cronometro, che sta andando', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 10_500);
+    expect((await runState(page)).phase).toBe('done');
+    await expect(page.locator('#run-round')).toHaveText(/Torno al cronometro tra 8 s/);
+    await advance(page, 7_000);
+    await expect(page.locator('#tabata-run')).toBeVisible(); // il riepilogo si legge ancora
+    await advance(page, 1_500);
+    await expect(page.locator('#tabata-run')).toBeHidden();
+    await expect(page.locator('#view-stopwatch')).toHaveClass(/active/);
+    await expect(page.locator('#sw-toggle')).toHaveText('Pausa');
+    await expect(page.locator('#sw-main')).toHaveText(/00:1[89]/); // la sessione è continuata, non si è azzerata
+  });
+
+  test('toccare i numeri o premere spazio su "FINITO!" non fa ripartire l\'allenamento', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 10_500);
+    await page.click('#run-center');
+    await page.keyboard.press('Space');
+    expect((await runState(page)).phase).toBe('done');
+    await advance(page, 8_500);
+    await expect(page.locator('#view-stopwatch')).toHaveClass(/active/); // e il ritorno avviene comunque
+  });
+
+  test('"Ancora" entro gli 8 secondi annulla il ritorno', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 10_500);
+    await page.click('#tb-toggle'); // Ancora
+    await advance(page, 9_000);
+    await expect(page.locator('#tabata-run')).toBeVisible();
+    expect((await runState(page)).phase).toBe('work');
+  });
+
+  test('chiudere con la ✕ durante il conto alla rovescia non lascia ritorni in sospeso', async ({ page }) => {
+    await openApp(page, { storage: workoutStorage('emom', cfg) });
+    await start(page);
+    await advance(page, 10_500);
+    await page.click('#tb-close');
+    await page.click('.tab[data-view=tabata]');
+    await advance(page, 9_000);
+    await expect(page.locator('#view-tabata')).toHaveClass(/active/); // resta dove l'ha lasciata lei
+  });
+});
+
 test('EMOM: un intervallo per round', async ({ page }) => {
   await openApp(page, { storage: workoutStorage('emom', { prep: 0, interval: 10, rounds: 3 }) });
   await expect(page.locator('#total-time')).toHaveText('0:30');

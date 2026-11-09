@@ -564,6 +564,8 @@ function loadPresets() {
 // pausa oltre la quale il prossimo allenamento inizia una lezione nuova, e durata massima di una lezione
 const SESSION_GAP_MS = 30 * 60 * 1000;
 const SESSION_MAX_MS = 6 * 60 * 60 * 1000;
+// secondi in cui resta visibile "FINITO!" prima di tornare al cronometro di sessione
+const RETURN_AFTER_S = 8;
 
 const workout = {
   modeId: MODES[store.get('wo.mode', 'tabata')] ? store.get('wo.mode', 'tabata') : 'tabata',
@@ -831,6 +833,7 @@ const workout = {
   },
 
   start() {
+    this.cancelReturn();
     sound.unlock();
     if (!stopwatch.running() || this.sessionIsStale()) stopwatch.startNew();
     stopwatch.state.workoutEndedAt = null; // allenamento in corso
@@ -873,7 +876,8 @@ const workout = {
   },
 
   toggle() {
-    if (this.finished) return this.start();
+    // a fine allenamento un tocco sui numeri (o la barra spaziatrice) non fa nulla: per ripetere c'è "Ancora"
+    if (this.finished) return;
     sound.unlock();
     if (this.running()) { this.acc = this.elapsed(); this.startedAt = null; }
     else this.startedAt = performance.now();
@@ -906,6 +910,7 @@ const workout = {
 
   close() {
     if (this.inProgress() && !confirm('Interrompere l\'allenamento?')) return;
+    this.cancelReturn();
     this.markEnded();
     this.startedAt = null;
     $('#tabata-run').classList.add('hidden');
@@ -950,10 +955,32 @@ const workout = {
     $('#tb-done').classList.add('hidden');
     $('#tb-count').classList.add('hidden');
     $('#cnt-minus').classList.add('hidden');
+    $('#run-counter').classList.add('hidden'); // i round sono già nel riepilogo
     $('#tb-restart').classList.add('hidden');
     $('#tb-skip').classList.add('hidden');
     sound.beep(1046, 0.25); setTimeout(() => sound.beep(1046, 0.25), 300); setTimeout(() => sound.beep(1318, 0.6), 600);
     sound.say(this.runMode.counter ? `Finito! ${this.count} round.` : 'Finito, ottimo lavoro!');
+    // se il cronometro di sessione va, dopo qualche secondo (per leggere il riepilogo) si torna a lui
+    if (stopwatch.running()) this.startReturnCountdown();
+  },
+
+  startReturnCountdown() {
+    this.cancelReturn();
+    let left = RETURN_AFTER_S;
+    const show = () => { $('#run-round').textContent = `Torno al cronometro tra ${left} s`; };
+    show();
+    this.returnTimer = setInterval(() => {
+      left -= 1;
+      if (left > 0) return show();
+      this.cancelReturn();
+      $('#tabata-run').classList.add('hidden');
+      showView('stopwatch');
+    }, 1000);
+  },
+
+  cancelReturn() {
+    clearInterval(this.returnTimer);
+    this.returnTimer = null;
   },
 
   tick() {
@@ -1021,7 +1048,8 @@ const workout = {
 
   initRun() {
     $('#tb-start').addEventListener('click', () => this.start());
-    $('#tb-toggle').addEventListener('click', () => this.toggle());
+    // da finito questo pulsante è "Ancora"
+    $('#tb-toggle').addEventListener('click', () => (this.finished ? this.start() : this.toggle()));
     $('#tb-skip').addEventListener('click', () => this.skip());
     $('#tb-restart').addEventListener('click', () => {
       if (this.inProgress() && !confirm('Ricominciare l\'allenamento da capo?')) return;

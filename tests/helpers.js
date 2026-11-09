@@ -24,10 +24,10 @@ async function mute(page) {
     }
     window.AudioContext = SilentAudioContext;
     window.webkitAudioContext = SilentAudioContext;
-    if ('speechSynthesis' in window) {
-      speechSynthesis.speak = (u) => { window.__qa.spoken.push(u.text); };
-      speechSynthesis.cancel = () => {};
-    }
+    // voce finta sempre presente: WebKit a volte non espone (ancora) la sintesi vocale quando la macchina è carica
+    const fakeSpeech = { speak: (u) => { window.__qa.spoken.push(u.text); }, cancel() {}, getVoices: () => [] };
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, get: () => fakeSpeech });
+    if (!window.SpeechSynthesisUtterance) window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text; } };
     // il video anti-oscuramento ha una traccia audio muta, ma per sicurezza niente audio dai video
     Object.defineProperty(HTMLMediaElement.prototype, 'muted', { configurable: true, get: () => true, set() {} });
   });

@@ -41,9 +41,11 @@ Senza account sviluppatore Apple non si può installare un'app nativa stabile su
 - Schermo colorato per fase: **giallo** preparazione, **arancio** riscaldamento, **verde** lavoro, **rosso** riposo,
   **blu** recupero, **verde acqua** defaticamento, **viola** fine.
 - Mostra: fase o nome dell'esercizio, tempo, round, tempo totale rimanente, cosa viene dopo, barra di avanzamento.
-- **Cronometro di sessione** sempre visibile in alto a destra ("Sessione 18:42"): è il cronometro della scheda Cronometro.
-  Se è fermo parte insieme all'allenamento; se era già avviato (es. riscaldamento, spiegazione degli esercizi)
-  continua da dove era. Non si ferma con la pausa dell'allenamento né quando l'allenamento finisce.
+- **Cronometro di sessione** grande in alto a sinistra ("SESSIONE 18:42"), a destra il tempo rimanente: è il
+  cronometro della scheda Cronometro e misura la lezione. Continua tra più allenamenti; riparte da zero se il
+  cronometro è fermo, dopo 30 minuti dalla fine dell'ultimo allenamento o di inattività, o oltre le 6 ore.
+- A fine allenamento "FINITO!" resta 8 secondi con il riepilogo, poi l'app torna da sola alla scheda Cronometro
+  ("Ancora" lo ripete e annulla il ritorno).
 - Segnali sonori: bip negli ultimi 3 secondi, bip lungo a cambio fase; voce opzionale
   ("Via", "Riposo", nome dell'esercizio, "Ultimo round").
 - Comandi: Pausa (anche toccando i numeri), Salta fase, Ricomincia; "+1 Round" e "Fatto" dove servono.
